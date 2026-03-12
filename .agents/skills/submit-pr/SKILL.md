@@ -149,7 +149,7 @@ The PR targets upstream's `main` branch from the fork. Return the PR URL to the 
 When pushing additional commits to an existing PR, **always update the PR body** to reflect the new changes:
 
 ```bash
-gh pr edit <number> --body "$(cat <<'EOF'
+gh pr edit <pr-number> --body "$(cat <<'EOF'
 ...updated body...
 EOF
 )"
