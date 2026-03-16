@@ -19,6 +19,7 @@ This directory contains the Architecture Decision Records (ADRs) for APME.
 | [ADR-011](ADR-011-yaml-formatter-prepass.md) | YAML Formatter as Phase 1 Pre-Pass | Accepted | 2026-03 |
 | [ADR-012](ADR-012-scale-pods-not-services.md) | Scale Pods, Not Services | Accepted | 2026-02 |
 | [ADR-013](ADR-013-structured-diagnostics.md) | Structured Diagnostics in gRPC | Accepted | 2026-03 |
+| [ADR-014](ADR-014-cli-output-formats.md) | CLI Output Formats | Proposed | 2026-03 |
 
 ## Categories
 
@@ -43,6 +44,9 @@ This directory contains the Architecture Decision Records (ADRs) for APME.
 - ADR-009: Remediation engine architecture
 - ADR-011: YAML formatter pre-pass
 
+### CLI
+- ADR-014: CLI output formats
+
 ## Archived
 
 Original planning ADRs that were superseded by implementation decisions:
@@ -56,7 +60,7 @@ Original planning ADRs that were superseded by implementation decisions:
 ## Creating New ADRs
 
 1. Copy the template from `../.sdlc/templates/adr.md`
-2. Use the next available number (currently ADR-014)
+2. Use the next available number (currently ADR-015)
 3. Include:
    - Status (Proposed → Accepted)
    - Date
@@ -85,3 +89,4 @@ Original planning ADRs that were superseded by implementation decisions:
 | 011 | 2026-03 | YAML formatter as Phase 1 pre-pass |
 | 012 | 2026-02 | Scale pods, not services |
 | 013 | 2026-03 | Structured diagnostics in gRPC contract |
+| 014 | 2026-03 | CLI output formats (Rich, JSON, JUnit, HTML) |

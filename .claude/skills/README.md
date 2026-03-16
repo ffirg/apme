@@ -15,6 +15,9 @@ Claude Code skills for Spec-Driven Development.
 | `/dr-new` | Create Decision Request | `[Question] [--priority X]` |
 | `/dr-review` | Resolve Decision Request | `[DR-NNN] [--quick]` |
 | `/adr-new` | Create Architecture Decision Record | `[Title] [--from-dr X]` |
+| `/adr-review` | Review and accept/reject ADRs | `[ADR-NNN] [--accept]` |
+| `/adr-check` | Check if work requires an ADR | `[description] [--from-task X]` |
+| `/sdlc-report` | Generate SDLC framework report | `[--output PATH]` |
 
 ## Skill Structure
 
@@ -45,9 +48,15 @@ skills/
 ├── dr-review/
 │   ├── SKILL.md
 │   └── references/
-└── adr-new/
-    ├── SKILL.md
-    └── references/
+├── adr-new/
+│   ├── SKILL.md
+│   └── references/
+├── adr-review/
+│   └── SKILL.md
+├── adr-check/
+│   └── SKILL.md
+└── sdlc-report/
+    └── SKILL.md
 ```
 
 ## SKILL.md Format

@@ -4,6 +4,16 @@
 
 This document is the authoritative source of truth for AI agents. All development must align with these principles.
 
+## General Rules
+
+- When working with multiple repositories/projects, always confirm the correct working directory before making changes or creating files. Use `pwd` and `git remote -v` to verify.
+- Before starting work, ask clarifying questions about scope rather than assuming. Do not begin executing until the user confirms the approach.
+- Never commit to git without explicit user approval.
+
+## Project Context
+
+Primary languages and file types: Markdown documentation, Shell/Bash scripts, Python scripts, JavaScript. Most work involves documentation systems (.sdlc/), automation scripts, and JIRA/AAP infrastructure tooling.
+
 ## Overview
 
 APME is a multi-service system that automates policy enforcement and modernization of Ansible content for AAP 2.5+. Services: Primary Orchestrator, Native/OPA/Ansible/Gitleaks Validators, Remediation Engine, CLI.
@@ -23,6 +33,16 @@ APME is a multi-service system that automates policy enforcement and modernizati
 ```
 
 Full details: [architecture.md](/.sdlc/context/architecture.md) | [deployment.md](/.sdlc/context/deployment.md)
+
+## Project Structure
+
+The `.sdlc/` directory structure:
+- `context/` — Project context docs (architecture, deployment, conventions)
+- `specs/` — Requirement specifications (REQ-NNN directories with tasks)
+- `decisions/` — Decision requests (open/, closed/)
+- `adrs/` — Architecture Decision Records
+
+Do not confuse these directories.
 
 ## Key ADRs
 
@@ -46,7 +66,9 @@ All features follow: **Spec First → DR for Questions → ADR for Decisions →
 | `/req-new` | Create requirement spec |
 | `/task-new` | Create implementation task |
 | `/dr-new` | Capture blocking question |
+| `/dr-review` | Resolve blocking DRs |
 | `/adr-new` | Document architectural decision |
+| `/adr-review` | Accept/reject proposed ADRs |
 
 Full workflow: [workflow.md](/.sdlc/context/workflow.md) | Getting started: [getting-started.md](/.sdlc/context/getting-started.md)
 
@@ -60,6 +82,43 @@ Full workflow: [workflow.md](/.sdlc/context/workflow.md) | Getting started: [get
 - Do NOT modify files outside task scope
 - Do NOT add features not in requirements
 - Ask for clarification if specs are ambiguous
+
+## Tool Usage
+
+- When fetching web content, prefer `curl` over WebFetch for authenticated or API-based requests.
+- If a URL returns 403/blocked, immediately pivot to alternative sources rather than retrying.
+
+## Architectural Change Detection
+
+**IMPORTANT**: Before completing any task, check if the work involves architectural changes. If yes, an ADR is required.
+
+### Triggers for ADR
+
+Raise an ADR (`/adr-new`) when work involves:
+
+| Category | Examples |
+|----------|----------|
+| **New dependencies** | Adding packages to pyproject.toml, new container images |
+| **API/Protocol changes** | New proto messages, changed gRPC contracts, new endpoints |
+| **Data format changes** | New output formats, schema changes, serialization changes |
+| **Service topology** | New containers, changed ports, new communication paths |
+| **Security boundaries** | Auth changes, new trust boundaries, secret handling |
+| **Storage/Persistence** | Database choices, caching strategies, file formats |
+| **CLI interface** | New commands, changed flags, output format options |
+| **Integration patterns** | How APME connects to external systems (AAP, Galaxy, etc.) |
+
+### Self-Check Prompt
+
+At task completion, ask yourself:
+```
+Does this work change HOW the system works (not just WHAT it does)?
+- Yes → Create ADR before marking task complete
+- No  → Proceed with task completion
+```
+
+### Quick ADR Check
+
+If uncertain, use `/adr-check` to evaluate if current work needs an ADR.
 
 ## Quality Gates
 
