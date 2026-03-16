@@ -521,7 +521,7 @@ class FormattedYAML(YAML):  # type: ignore[misc]
 
         # NB: We ignore some mypy issues because ruamel.yaml typehints are not great.
 
-        if not config:
+        if config is None:
             config = dict(self.default_config)  # type: ignore[arg-type]
 
         self.explicit_start = config["explicit_start"]
