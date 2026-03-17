@@ -6,7 +6,7 @@ REQ-004: Enterprise Integration
 
 ## Status
 
-Pending
+Complete
 
 ## Description
 
@@ -61,11 +61,11 @@ Research spike for config-only reporting options for the CLI. Evaluate lightweig
 
 Before marking complete:
 
-- [ ] Multiple reporting options evaluated
-- [ ] PoC demonstrates config-only setup
-- [ ] Works standalone with CLI output
-- [ ] Recommendation documented with rationale
-- [ ] DR/ADR created if architectural decision needed
+- [x] Multiple reporting options evaluated (5 options in research doc)
+- [x] PoC demonstrates config-only setup (Rich prototype, then internal ANSI)
+- [x] Works standalone with CLI output (terminal + HTML export)
+- [x] Recommendation documented with rationale (Rich initially, then internal ANSI)
+- [x] ADR created for architectural decision (ADR-014: CLI Output Formats)
 
 ## Acceptance Criteria Reference
 
@@ -84,7 +84,60 @@ From REQ-004:
 
 ## Completion Checklist
 
-- [ ] Research complete
-- [ ] Deliverables produced
-- [ ] Status updated to Complete
+- [x] Research complete (2026-03-13)
+- [x] Deliverables produced
+- [x] Status updated to Complete
 - [ ] Committed with message: `Implements TASK-001: CLI reporting options research`
+
+## Results Summary
+
+**Initial Recommendation**: Use Rich + HTML Export (already a dependency)
+
+**Final Decision (ADR-014)**: Use **internal zero-dependency ANSI module** instead of Rich
+
+**Rationale for change**:
+- Rich + dependencies = ~1.6 MB (rich + pygments + markdown-it-py + mdurl)
+- Internal ANSI module = ~200 lines, single file, fully typed
+- Feature surface is tiny (8 colors, badges, boxes, tables, tree chars)
+- Rich would add 30K+ lines of code, 95% unused
+- Internal module provides pixel-perfect control over badge styling
+
+**Deliverables**:
+- `.sdlc/research/cli-reporting-options.md` - Full evaluation of 5 options + implementation guide
+- `prototypes/cli-reporting/output_formatter.py` - Rich-based reference (superseded)
+- `src/apme_engine/ansi.py` - **Final implementation** (zero-dependency ANSI styling)
+- `tests/test_ansi.py` - 45 unit tests for ANSI module
+
+**Implementation** (ADR-014):
+| Format | Flag | Implementation |
+|--------|------|----------------|
+| ANSI terminal | `--format rich` (default) | `src/apme_engine/ansi.py` |
+| JSON | `--format json` / `--json` | stdlib `json` |
+| JUnit XML | `--format junit` | stdlib `xml.etree` |
+| HTML | `--format html` | ANSI-to-HTML conversion |
+
+**Key Finding**: Zero new dependencies achieved. Internal ANSI module provides all needed terminal styling with NO_COLOR/FORCE_COLOR support (no-color.org compliant).
+
+## Testing the Implementation
+
+To test the ANSI styling module:
+```bash
+uv run pytest tests/test_ansi.py -v
+```
+
+To see the CLI output formats in action:
+```bash
+# ANSI terminal output (default)
+apme-scan scan .
+
+# JSON output
+apme-scan scan . --json
+
+# With diagnostics
+apme-scan scan . -v --primary-addr localhost:50051
+```
+
+**Related PRs**:
+- PR #17: ADR-014 and SDLC documentation
+- PR #18: `src/apme_engine/ansi.py` implementation
+- PR #19: Test coverage for CLI health-check and diagnostics
