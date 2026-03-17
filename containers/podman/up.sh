@@ -16,10 +16,16 @@ if [[ "$CACHE_PATH" != /* ]]; then
   exit 1
 fi
 
+if [[ "$CACHE_PATH" == *$'\n'* ]]; then
+  echo "ERROR: APME_CACHE_HOST_PATH must not contain newlines" >&2
+  exit 1
+fi
+
 mkdir -p "$CACHE_PATH"
 
-# Pod YAML cannot use env vars; we always inject the resolved path (escape & and \ for sed)
-ESCAPED_PATH=$(printf '%s\n' "$CACHE_PATH" | sed -e 's/\\/\\\\/g' -e 's/&/\\&/g')
+# Pod YAML cannot use env vars; we always inject the resolved path.
+# Escape \, &, and the | delimiter so sed substitution is safe.
+ESCAPED_PATH=$(printf '%s\n' "$CACHE_PATH" | sed -e 's/\\/\\\\/g' -e 's/[&|]/\\&/g')
 sed "s|path: __APME_CACHE_PATH__|path: ${ESCAPED_PATH}|" containers/podman/pod.yaml \
   | podman play kube -
 
