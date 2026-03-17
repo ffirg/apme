@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""
-TASK-001 PoC: Rich HTML Export
+"""TASK-001 PoC: Rich HTML Export.
 
 Demonstrates exporting Rich terminal output to HTML.
 Run: python rich_html_export.py
 Output: sample_output.html
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -27,26 +28,98 @@ SAMPLE_RESULTS = {
         "hints": 3,
     },
     "issues": [
-        {"rule": "L001", "severity": "error", "message": "Module 'apt' should use FQCN 'ansible.builtin.apt'", "file": "playbook.yml", "line": 15},
-        {"rule": "L001", "severity": "error", "message": "Module 'yum' should use FQCN 'ansible.builtin.yum'", "file": "playbook.yml", "line": 23},
-        {"rule": "M002", "severity": "warning", "message": "Parameter 'state=latest' is deprecated in ansible-core 2.16+", "file": "tasks/main.yml", "line": 8},
-        {"rule": "M003", "severity": "warning", "message": "Module 'include' deprecated, use 'ansible.builtin.include_tasks'", "file": "playbook.yml", "line": 45},
-        {"rule": "R001", "severity": "warning", "message": "Using 'shell' when 'command' would suffice", "file": "handlers/main.yml", "line": 12},
-        {"rule": "P001", "severity": "warning", "message": "Missing 'become' declaration at play level", "file": "playbook.yml", "line": 1},
-        {"rule": "SEC001", "severity": "warning", "message": "Potential hardcoded password detected", "file": "vars/main.yml", "line": 5},
-        {"rule": "M004", "severity": "warning", "message": "Collection 'community.general' not in requirements.yml", "file": "playbook.yml", "line": 30},
-        {"rule": "M005", "severity": "warning", "message": "Using deprecated 'with_items' loop syntax", "file": "tasks/main.yml", "line": 20},
-        {"rule": "L002", "severity": "hint", "message": "Consider using 'ansible.builtin.debug' instead of 'debug'", "file": "playbook.yml", "line": 50},
-        {"rule": "L003", "severity": "hint", "message": "Task name could be more descriptive", "file": "tasks/main.yml", "line": 1},
-        {"rule": "L004", "severity": "hint", "message": "Consider adding 'changed_when' for shell task", "file": "handlers/main.yml", "line": 12},
+        {
+            "rule": "L001",
+            "severity": "error",
+            "message": "Module 'apt' should use FQCN 'ansible.builtin.apt'",
+            "file": "playbook.yml",
+            "line": 15,
+        },
+        {
+            "rule": "L001",
+            "severity": "error",
+            "message": "Module 'yum' should use FQCN 'ansible.builtin.yum'",
+            "file": "playbook.yml",
+            "line": 23,
+        },
+        {
+            "rule": "M002",
+            "severity": "warning",
+            "message": "Parameter 'state=latest' is deprecated in ansible-core 2.16+",
+            "file": "tasks/main.yml",
+            "line": 8,
+        },
+        {
+            "rule": "M003",
+            "severity": "warning",
+            "message": "Module 'include' deprecated, use 'ansible.builtin.include_tasks'",
+            "file": "playbook.yml",
+            "line": 45,
+        },
+        {
+            "rule": "R001",
+            "severity": "warning",
+            "message": "Using 'shell' when 'command' would suffice",
+            "file": "handlers/main.yml",
+            "line": 12,
+        },
+        {
+            "rule": "P001",
+            "severity": "warning",
+            "message": "Missing 'become' declaration at play level",
+            "file": "playbook.yml",
+            "line": 1,
+        },
+        {
+            "rule": "SEC001",
+            "severity": "warning",
+            "message": "Potential hardcoded password detected",
+            "file": "vars/main.yml",
+            "line": 5,
+        },
+        {
+            "rule": "M004",
+            "severity": "warning",
+            "message": "Collection 'community.general' not in requirements.yml",
+            "file": "playbook.yml",
+            "line": 30,
+        },
+        {
+            "rule": "M005",
+            "severity": "warning",
+            "message": "Using deprecated 'with_items' loop syntax",
+            "file": "tasks/main.yml",
+            "line": 20,
+        },
+        {
+            "rule": "L002",
+            "severity": "hint",
+            "message": "Consider using 'ansible.builtin.debug' instead of 'debug'",
+            "file": "playbook.yml",
+            "line": 50,
+        },
+        {
+            "rule": "L003",
+            "severity": "hint",
+            "message": "Task name could be more descriptive",
+            "file": "tasks/main.yml",
+            "line": 1,
+        },
+        {
+            "rule": "L004",
+            "severity": "hint",
+            "message": "Consider adding 'changed_when' for shell task",
+            "file": "handlers/main.yml",
+            "line": 12,
+        },
     ],
 }
 
 
-def render_report(console: Console, results: dict) -> None:
+def render_report(console: Console, results: dict[str, object]) -> None:
     """Render the full scan report."""
-    info = results["scan_info"]
-    summary = results["summary"]
+    info = results["scan_info"]  # type: ignore[assignment]
+    summary = results["summary"]  # type: ignore[assignment]
 
     # Header
     console.print()
@@ -121,7 +194,7 @@ def render_report(console: Console, results: dict) -> None:
 
 
 def main() -> None:
-    # Create console with recording enabled
+    """Render the sample report to HTML and print a terminal preview."""
     console = Console(record=True, width=120)
 
     # Render the report

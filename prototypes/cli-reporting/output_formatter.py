@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-TASK-001: CLI Output Formatter Implementation
+"""TASK-001: CLI Output Formatter Implementation.
 
 This module shows what would be required to add Rich-based output formatting
 to the APME scanner CLI. It provides four output modes:
@@ -33,7 +32,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
-
 
 # =============================================================================
 # DATA MODELS (mirrors proto/apme/v1/common.proto)
@@ -91,8 +89,7 @@ class OutputFormat(Enum):
 
 
 def format_rich(result: ScanResult, console: Console) -> None:
-    """
-    Render scan results using Rich terminal formatting.
+    """Render scan results using Rich terminal formatting.
 
     This is the default output format for interactive use.
     """
@@ -187,8 +184,7 @@ def format_rich(result: ScanResult, console: Console) -> None:
 
 
 def format_json(result: ScanResult, output: TextIO) -> None:
-    """
-    Render scan results as JSON for automation.
+    """Render scan results as JSON for automation.
 
     Schema designed for machine parsing and CI/CD integration.
     """
@@ -224,16 +220,13 @@ def format_json(result: ScanResult, output: TextIO) -> None:
 
 
 def format_junit(result: ScanResult, output: TextIO) -> None:
-    """
-    Render scan results as JUnit XML for CI/CD integration.
+    """Render scan results as JUnit XML for CI/CD integration.
 
     Compatible with Jenkins, GitHub Actions, GitLab CI, etc.
     """
-    error_count = sum(1 for v in result.violations if v.level == Level.ERROR)
-    warning_count = sum(1 for v in result.violations if v.level == Level.WARNING)
     total = len(result.violations)
+    error_count = sum(1 for v in result.violations if v.level == Level.ERROR)
 
-    # Root element
     testsuites = ET.Element("testsuites")
     testsuites.set("name", "APME Scan")
     testsuites.set("tests", str(total))
@@ -250,9 +243,7 @@ def format_junit(result: ScanResult, output: TextIO) -> None:
         testsuite = ET.SubElement(testsuites, "testsuite")
         testsuite.set("name", filename)
         testsuite.set("tests", str(len(violations)))
-        testsuite.set(
-            "failures", str(sum(1 for v in violations if v.level == Level.ERROR))
-        )
+        testsuite.set("failures", str(sum(1 for v in violations if v.level == Level.ERROR)))
         testsuite.set("errors", "0")
 
         for v in violations:
@@ -278,8 +269,7 @@ def format_junit(result: ScanResult, output: TextIO) -> None:
 
 
 def format_html(result: ScanResult, output_path: Path) -> None:
-    """
-    Render scan results as standalone HTML using Rich's save_html().
+    """Render scan results as standalone HTML using Rich's save_html().
 
     Generates a shareable HTML file that can be opened in any browser.
     """
@@ -299,8 +289,7 @@ def format_output(
     format: OutputFormat,
     output: Path | None = None,
 ) -> int:
-    """
-    Format scan results in the specified format.
+    """Format scan results in the specified format.
 
     Args:
         result: Scan results from Primary service

@@ -64,4 +64,3 @@ python3 -m http.server 8765
 4. **Sidebar Navigation**: Matches AAP platform layout for user familiarity.
 
 5. **Progressive Disclosure**: Dashboard shows summary → Scans list shows all → Detail shows violations per file.
-EOF < /dev/null

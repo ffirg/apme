@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""
-TASK-001 PoC: Rich Terminal Output
+"""TASK-001 PoC: Rich Terminal Output.
 
 Demonstrates CLI scan results using Rich tables and panels.
 Run: python rich_terminal.py
 """
+
+from __future__ import annotations
 
 from rich.console import Console
 from rich.panel import Panel
@@ -20,19 +21,67 @@ SAMPLE_RESULTS = {
         "hints": 3,
     },
     "issues": [
-        {"rule": "L001", "severity": "error", "message": "Module 'apt' should use FQCN", "file": "playbook.yml", "line": 15},
-        {"rule": "L001", "severity": "error", "message": "Module 'yum' should use FQCN", "file": "playbook.yml", "line": 23},
-        {"rule": "M002", "severity": "warning", "message": "Parameter 'state=latest' deprecated", "file": "tasks/main.yml", "line": 8},
-        {"rule": "M003", "severity": "warning", "message": "Module 'include' deprecated, use 'include_tasks'", "file": "playbook.yml", "line": 45},
-        {"rule": "R001", "severity": "warning", "message": "Using 'shell' when 'command' would suffice", "file": "handlers/main.yml", "line": 12},
-        {"rule": "P001", "severity": "warning", "message": "Missing 'become' declaration", "file": "playbook.yml", "line": 1},
-        {"rule": "SEC001", "severity": "warning", "message": "Hardcoded password detected", "file": "vars/main.yml", "line": 5},
-        {"rule": "L002", "severity": "hint", "message": "Consider using 'ansible.builtin.debug'", "file": "playbook.yml", "line": 50},
+        {
+            "rule": "L001",
+            "severity": "error",
+            "message": "Module 'apt' should use FQCN",
+            "file": "playbook.yml",
+            "line": 15,
+        },
+        {
+            "rule": "L001",
+            "severity": "error",
+            "message": "Module 'yum' should use FQCN",
+            "file": "playbook.yml",
+            "line": 23,
+        },
+        {
+            "rule": "M002",
+            "severity": "warning",
+            "message": "Parameter 'state=latest' deprecated",
+            "file": "tasks/main.yml",
+            "line": 8,
+        },
+        {
+            "rule": "M003",
+            "severity": "warning",
+            "message": "Module 'include' deprecated, use 'include_tasks'",
+            "file": "playbook.yml",
+            "line": 45,
+        },
+        {
+            "rule": "R001",
+            "severity": "warning",
+            "message": "Using 'shell' when 'command' would suffice",
+            "file": "handlers/main.yml",
+            "line": 12,
+        },
+        {
+            "rule": "P001",
+            "severity": "warning",
+            "message": "Missing 'become' declaration",
+            "file": "playbook.yml",
+            "line": 1,
+        },
+        {
+            "rule": "SEC001",
+            "severity": "warning",
+            "message": "Hardcoded password detected",
+            "file": "vars/main.yml",
+            "line": 5,
+        },
+        {
+            "rule": "L002",
+            "severity": "hint",
+            "message": "Consider using 'ansible.builtin.debug'",
+            "file": "playbook.yml",
+            "line": 50,
+        },
     ],
 }
 
 
-def render_summary(console: Console, results: dict) -> None:
+def render_summary(console: Console, results: dict[str, object]) -> None:
     """Render summary panel."""
     summary = results["summary"]
 
@@ -47,7 +96,7 @@ def render_summary(console: Console, results: dict) -> None:
     console.print(panel)
 
 
-def render_issues_table(console: Console, results: dict) -> None:
+def render_issues_table(console: Console, results: dict[str, object]) -> None:
     """Render issues as a table."""
     table = Table(title="Issues Found", show_header=True, header_style="bold magenta")
 
@@ -73,12 +122,12 @@ def render_issues_table(console: Console, results: dict) -> None:
     console.print(table)
 
 
-def render_issues_tree(console: Console, results: dict) -> None:
+def render_issues_tree(console: Console, results: dict[str, object]) -> None:
     """Render issues as a tree grouped by file."""
     tree = Tree("[bold]Issues by File[/bold]")
 
     # Group by file
-    by_file: dict[str, list] = {}
+    by_file: dict[str, list[dict[str, object]]] = {}
     for issue in results["issues"]:
         by_file.setdefault(issue["file"], []).append(issue)
 
@@ -94,6 +143,7 @@ def render_issues_tree(console: Console, results: dict) -> None:
 
 
 def main() -> None:
+    """Render sample scan results in three Rich views."""
     console = Console()
 
     console.print("\n[bold green]APME Scan Results[/bold green]\n")
