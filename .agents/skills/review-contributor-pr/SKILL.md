@@ -51,10 +51,11 @@ fixes or improving the PR):
 
 ### 3. Run pre-commit checks (prek) before pushing
 
-- **Prek is a uv tool.** Run:
+- Use the same workflow as **DEVELOPMENT.md** and **submit-pr**: install prek
+  with `uv tool install prek`, then run:
 
   ```bash
-  uvx prek run --all-files
+  prek run --all-files
   ```
 
   All hooks (ruff, ruff format, mypy, pydoclint) must pass on the **entire**
@@ -62,7 +63,7 @@ fixes or improving the PR):
   decorators, docstring sections, format) before pushing to the contributor's
   branch.
 
-- If prek is not available, run the equivalent:
+- If prek is not installed, run the equivalent:
 
   ```bash
   uv run ruff check src/ tests/ && uv run ruff format src/ tests/
@@ -96,7 +97,7 @@ fixes or improving the PR):
 - Before pushing:
 
   1. Rebase onto `upstream/main` so the PR is up to date.
-  2. Ensure `uvx prek run --all-files` passes.
+  2. Ensure `prek run --all-files` passes (or equivalent; see §3).
   3. Use `--force-with-lease` when pushing a rebased branch:
      `git push <remote> <local-branch>:<their-branch> --force-with-lease`.
 
@@ -109,7 +110,8 @@ When you push fixes that address a review comment, **reply on that thread** so
 the resolution is visible. Use the same method as the **pr-review** skill:
 
 - Reply via the REST API (use the **top-level** comment id for the thread, not
-  a reply):
+  a reply). Replace `PR` with the pull request number (e.g. `22`) and
+  `COMMENT_ID` with the top-level comment's `id`:
 
   ```bash
   gh api -X POST "repos/ansible/apme/pulls/PR/comments/COMMENT_ID/replies" \
@@ -134,12 +136,12 @@ When reviewing or preparing a contributor PR:
 
 - [ ] Fetched PR and know base/head and remotes.
 - [ ] Branch is up to date with upstream main (rebase if needed before push).
-- [ ] `uvx prek run --all-files` passes (or equivalent ruff/mypy/pydoclint).
+- [ ] `prek run --all-files` passes (or equivalent; see DEVELOPMENT.md).
 - [ ] PR description has Summary, Changes, and Test plan (submit-pr style).
 - [ ] If pushing to their branch: rebase onto upstream main, prek green, then
       `git push <remote> <local>:<their-branch> --force-with-lease`.
 - [ ] If you addressed a review comment: reply on that thread (same as pr-review)
-      with explanation + commit SHA, using `.../pulls/PR/comments/COMMENT_ID/replies`.
+      with explanation + commit SHA, using the replies endpoint (replace PR and COMMENT_ID).
 
 ## References
 
