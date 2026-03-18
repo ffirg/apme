@@ -11,6 +11,7 @@ from pathlib import Path
 from apme_engine.engine.models import ViolationDict
 from apme_engine.remediation.partition import normalize_rule_id, partition_violations
 from apme_engine.remediation.registry import TransformRegistry
+from apme_engine.remediation.transforms._helpers import violation_line_to_int
 
 
 @dataclass
@@ -172,6 +173,8 @@ class RemediationEngine:
                 self._log(f"  Pass {pass_num}: 0 fixable -> converged")
                 break
 
+            tier1.sort(key=violation_line_to_int, reverse=True)
+
             applied_this_pass = 0
             for v in tier1:
                 rule_id = normalize_rule_id(str(v.get("rule_id", "")))
@@ -195,17 +198,18 @@ class RemediationEngine:
 
             self._write_files(file_contents)
             new_violations = self._scan_fn(file_paths)
-            new_count = len(new_violations)
+            new_tier1, _, _ = partition_violations(new_violations, self._registry)
+            new_fixable = len(new_tier1)
 
-            if new_count >= prev_count:
-                self._log(f"  Pass {pass_num}: oscillation ({new_count} >= {prev_count})")
+            if new_fixable >= prev_count:
+                self._log(f"  Pass {pass_num}: oscillation ({new_fixable} fixable >= {prev_count})")
                 oscillation = True
                 break
 
-            prev_count = new_count
+            prev_count = new_fixable
 
-            if new_count == 0:
-                self._log(f"  Pass {pass_num}: fully converged (0 violations)")
+            if new_fixable == 0:
+                self._log(f"  Pass {pass_num}: fully converged (0 fixable)")
                 break
 
         # Final partition of remaining violations

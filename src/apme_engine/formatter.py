@@ -104,6 +104,78 @@ def _fix_tabs(text: str) -> str:
     return text.replace("\t", "  ")
 
 
+def _strip_stray_blanks(text: str) -> str:
+    """Remove interior blank lines inserted by ruamel round-trip dumping.
+
+    Keeps blank lines before document markers (``---``) and at EOF.
+    Intentional task-level spacing is re-inserted by ``_add_task_spacing``.
+
+    Args:
+        text: YAML text possibly containing stray blank lines.
+
+    Returns:
+        Cleaned text with interior blank lines removed.
+    """
+    lines = text.split("\n")
+    result: list[str] = []
+    for i, line in enumerate(lines):
+        if line.strip() == "" and i > 0 and i < len(lines) - 1:
+            next_line = lines[i + 1] if i + 1 < len(lines) else ""
+            if next_line.startswith("---") or next_line.strip() == "":
+                result.append(line)
+                continue
+            continue
+        result.append(line)
+    return "\n".join(result)
+
+
+_TASK_LIST_KEYS = frozenset({"tasks", "pre_tasks", "post_tasks", "handlers", "block", "rescue", "always"})
+_TASK_ITEM_RE = re.compile(r"^(\s*)- \S")
+
+
+def _add_task_spacing(text: str) -> str:
+    """Insert a blank line between task list items when missing.
+
+    Only applies under known task-list keys (tasks, handlers, block, etc.)
+    so that non-task sequences (vars lists, loop items) are not affected.
+
+    Args:
+        text: Formatted YAML text.
+
+    Returns:
+        Text with blank lines between task-level list items.
+    """
+    lines = text.split("\n")
+    result: list[str] = [lines[0]] if lines else []
+    in_task_list = False
+    task_list_indent = -1
+    for i in range(1, len(lines)):
+        line = lines[i]
+        stripped = line.rstrip()
+
+        if stripped.endswith(":") and stripped.lstrip("- ").rstrip(":").strip() in _TASK_LIST_KEYS:
+            in_task_list = True
+            task_list_indent = len(line) - len(line.lstrip())
+            result.append(line)
+            continue
+
+        if in_task_list and stripped and not stripped.startswith("#"):
+            line_indent = len(line) - len(line.lstrip())
+            if line_indent <= task_list_indent and not _TASK_ITEM_RE.match(line):
+                in_task_list = False
+
+        m = _TASK_ITEM_RE.match(line)
+        if in_task_list and m and result and result[-1].strip() != "":
+            indent = m.group(1)
+            is_mapping = i + 1 < len(lines) and lines[i + 1].startswith(indent + "  ")
+            is_action = ":" in line
+            prev_is_list_header = result[-1].rstrip().endswith(":")
+            if (is_mapping or is_action) and not prev_is_list_header:
+                result.append("")
+        result.append(line)
+    return "\n".join(result)
+
+
 def _reorder_task_keys(data: object) -> None:
     """Reorder keys in task mappings so name comes first, then action, then meta keys.
 
@@ -223,6 +295,8 @@ def format_content(text: str, filename: str = "<stdin>") -> FormatResult:
     formatted = yaml.dumps(data)
 
     formatted = _fix_jinja_spacing(formatted)
+    formatted = _strip_stray_blanks(formatted)
+    formatted = _add_task_spacing(formatted)
 
     changed = formatted != original
     diff = ""
