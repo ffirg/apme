@@ -7,6 +7,8 @@ minimum ``key``, ``type``, ``file``, ``line``, and ``defined_in``.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 NodeDict = dict[str, object]
 
 KEY_SEPARATOR = "#"
@@ -21,7 +23,7 @@ class NodeIndex:
 
     __slots__ = ("_by_key", "_by_file_line")
 
-    def __init__(self, hierarchy_payload: dict[str, object]) -> None:
+    def __init__(self, hierarchy_payload: Mapping[str, object]) -> None:
         """Build the index from a hierarchy payload dict.
 
         Args:
@@ -73,8 +75,10 @@ class NodeIndex:
             key: Node key string.
 
         Returns:
-            True if key is present.
+            True if key is present, False for non-string/unhashable keys.
         """
+        if not isinstance(key, str):
+            return False
         return key in self._by_key
 
     def __len__(self) -> int:

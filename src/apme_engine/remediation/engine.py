@@ -107,6 +107,17 @@ class RemediationEngine:
         self._verbose = verbose
         self._node_index = node_index
 
+    def set_node_index(self, node_index: NodeIndex) -> None:
+        """Set or replace the hierarchy node index.
+
+        Useful for lazy construction after the first scan has produced
+        hierarchy payloads, avoiding a redundant pre-scan.
+
+        Args:
+            node_index: NodeIndex built from hierarchy payloads.
+        """
+        self._node_index = node_index
+
     def _log(self, msg: str) -> None:
         """Write message to stderr if verbose mode is enabled.
 
@@ -129,6 +140,13 @@ class RemediationEngine:
     def _enrich(self, violations: list[ViolationDict]) -> None:
         """Enrich violations with tree node paths if a NodeIndex is available.
 
+        The NodeIndex is built once before remediation starts.  After
+        transforms shift line numbers the ``(file, line)`` secondary
+        index may go stale, but ``enrich_violations`` only falls back to
+        that index when a violation has no ``path`` (or an unknown one).
+        Validators that already set ``path`` to the node key are
+        unaffected by line-number drift.
+
         Args:
             violations: List of violation dicts to enrich in place.
         """
@@ -140,6 +158,7 @@ class RemediationEngine:
         file_paths: list[str],
         *,
         apply: bool = False,
+        initial_violations: list[ViolationDict] | None = None,
     ) -> FixReport:
         """Run the convergence loop on the given files.
 
@@ -151,6 +170,9 @@ class RemediationEngine:
         Args:
             file_paths: List of file paths to remediate.
             apply: If True, write fixes in place; if False, restore originals.
+            initial_violations: Pre-computed violations from a prior scan.
+                When supplied the engine skips its first ``scan_fn`` call,
+                avoiding a redundant scan pass.
 
         Returns:
             FixReport with passes, patches, and remaining violations.
@@ -199,9 +221,13 @@ class RemediationEngine:
         for pass_num in range(1, self._max_passes + 1):
             passes = pass_num
 
-            self._write_files(file_contents)
-            violations = self._scan_fn(file_paths)
-            self._enrich(violations)
+            if initial_violations is not None and pass_num == 1:
+                violations = initial_violations
+                self._enrich(violations)
+            else:
+                self._write_files(file_contents)
+                violations = self._scan_fn(file_paths)
+                self._enrich(violations)
             tier1, _, _ = partition_violations(violations, self._registry)
 
             self._log(f"  Pass {pass_num}: {len(tier1)} fixable (Tier 1)")

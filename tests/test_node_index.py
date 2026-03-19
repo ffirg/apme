@@ -11,7 +11,7 @@ from apme_engine.remediation.registry import TransformRegistry, TransformResult
 from apme_engine.remediation.transforms.L021_missing_mode import fix_missing_mode
 
 
-def _make_payload(*node_dicts: dict) -> dict:
+def _make_payload(*node_dicts: dict[str, object]) -> dict[str, object]:
     """Build a minimal hierarchy payload from node dicts.
 
     Args:
@@ -69,9 +69,12 @@ class TestNodeIndex:
             {"key": "task2", "type": "taskcall", "file": "/a/site.yml", "line": [10, 12]},
         )
         idx = NodeIndex(payload)
-        assert idx.find_by_file_line("/a/site.yml", 5) is not None
-        assert idx.find_by_file_line("/a/site.yml", 5)["key"] == "task1"
-        assert idx.find_by_file_line("/a/site.yml", 10)["key"] == "task2"
+        node5 = idx.find_by_file_line("/a/site.yml", 5)
+        assert node5 is not None
+        assert node5["key"] == "task1"
+        node10 = idx.find_by_file_line("/a/site.yml", 10)
+        assert node10 is not None
+        assert node10["key"] == "task2"
         assert idx.find_by_file_line("/a/site.yml", 99) is None
 
     def test_parent_key(self) -> None:
