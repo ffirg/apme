@@ -4,40 +4,56 @@ import argparse
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build and return the CLI argument parser.
+
+    Returns:
+        Configured ArgumentParser.
+    """
     parser = argparse.ArgumentParser(
         description="APME: Ansible Policy & Modernization Engine",
     )
     global_opts = argparse.ArgumentParser(add_help=False)
     global_opts.add_argument(
-        "--na", "--no-ansi",
-        action="store_true", default=False, dest="no_ansi",
+        "--na",
+        "--no-ansi",
+        action="store_true",
+        default=False,
+        dest="no_ansi",
         help="Disable ANSI color output",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # ── scan ──
     scan_p = subparsers.add_parser(
-        "scan", parents=[global_opts],
+        "scan",
+        parents=[global_opts],
         help="Scan a playbook, role, or project for policy violations",
     )
     scan_p.add_argument("target", nargs="?", default=".", help="Path to playbook, role, or project")
     scan_p.add_argument("--json", action="store_true", help="Output violations as JSON")
     scan_p.add_argument(
-        "--ansible-version", default=None,
+        "--ansible-version",
+        default=None,
         help="ansible-core version for validation (e.g. 2.18, 2.20)",
     )
     scan_p.add_argument(
-        "--collections", nargs="*", default=None,
+        "--collections",
+        nargs="*",
+        default=None,
         help="Collection specs to make available (e.g. community.general:9.0.0)",
     )
     scan_p.add_argument(
-        "-v", "--verbose", action="count", default=0,
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
         help="-v for summary, -vv for full per-rule breakdown",
     )
 
     # ── format ──
     fmt_p = subparsers.add_parser(
-        "format", parents=[global_opts],
+        "format",
+        parents=[global_opts],
         help="Normalize YAML formatting (indentation, key order, jinja spacing)",
     )
     fmt_p.add_argument("target", nargs="?", default=".", help="Path to file or directory")
@@ -47,7 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── fix ──
     fix_p = subparsers.add_parser(
-        "fix", parents=[global_opts],
+        "fix",
+        parents=[global_opts],
         help="Format + scan + remediate: full fix pipeline",
     )
     fix_p.add_argument("target", nargs="?", default=".", help="Path to file or directory")
@@ -56,29 +73,39 @@ def build_parser() -> argparse.ArgumentParser:
     fix_p.add_argument("--exclude", nargs="*", default=None, help="Glob patterns to skip")
     fix_p.add_argument("--max-passes", type=int, default=5, help="Max convergence passes (default: 5)")
     fix_p.add_argument(
-        "--ansible-version", default=None,
+        "--ansible-version",
+        default=None,
         help="ansible-core version for validation (e.g. 2.18, 2.20)",
     )
     fix_p.add_argument(
-        "--collections", nargs="*", default=None,
+        "--collections",
+        nargs="*",
+        default=None,
         help="Collection specs to make available (e.g. community.general:9.0.0)",
     )
     fix_p.add_argument(
-        "--auto-approve", action="store_true", default=False,
+        "--auto-approve",
+        action="store_true",
+        default=False,
         help="Approve all AI proposals without prompting (CI mode)",
     )
     fix_p.add_argument(
-        "--ai", action="store_true", default=False,
+        "--ai",
+        action="store_true",
+        default=False,
         help="Enable Tier 2 AI-assisted remediation",
     )
     fix_p.add_argument(
-        "--json", action="store_true", default=False,
+        "--json",
+        action="store_true",
+        default=False,
         help="Output structured data payloads as JSON",
     )
 
     # ── cache ──
     cache_p = subparsers.add_parser(
-        "cache", parents=[global_opts],
+        "cache",
+        parents=[global_opts],
         help="Manage collection cache (Galaxy + GitHub)",
     )
     cache_sub = cache_p.add_subparsers(dest="cache_command", required=True)
@@ -99,7 +126,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── daemon ──
     daemon_p = subparsers.add_parser(
-        "daemon", parents=[global_opts],
+        "daemon",
+        parents=[global_opts],
         help="Manage the local APME daemon (start/stop/status)",
     )
     daemon_sub = daemon_p.add_subparsers(dest="daemon_command", required=True)
@@ -109,7 +137,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── health-check ──
     health_p = subparsers.add_parser(
-        "health-check", parents=[global_opts],
+        "health-check",
+        parents=[global_opts],
         help="Check health of the engine (Primary + all downstream services)",
     )
     health_p.add_argument("--timeout", type=float, default=5.0, help="Timeout per check (default: 5s)")
@@ -117,7 +146,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── session (stub) ──
     subparsers.add_parser(
-        "session", parents=[global_opts],
+        "session",
+        parents=[global_opts],
         help="Manage named venv sessions (not yet available via gRPC)",
     )
 

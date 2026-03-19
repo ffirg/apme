@@ -48,18 +48,38 @@ class AsyncCommandStream:
     """Async iterator backed by a queue for feeding commands to FixSession."""
 
     def __init__(self) -> None:
+        """Initialize empty command queue."""
         self._queue: asyncio.Queue[SessionCommand | None] = asyncio.Queue()
 
     def send(self, cmd: SessionCommand) -> None:
+        """Enqueue a command for the stream.
+
+        Args:
+            cmd: Command to enqueue.
+        """
         self._queue.put_nowait(cmd)
 
     def close(self) -> None:
+        """Signal end of stream."""
         self._queue.put_nowait(None)
 
     def __aiter__(self) -> AsyncCommandStream:
+        """Return self as async iterator.
+
+        Returns:
+            Self.
+        """
         return self
 
     async def __anext__(self) -> SessionCommand:
+        """Return next command or raise StopAsyncIteration.
+
+        Returns:
+            Next SessionCommand from the queue.
+
+        Raises:
+            StopAsyncIteration: When the queue receives a None sentinel.
+        """
         cmd = await self._queue.get()
         if cmd is None:
             raise StopAsyncIteration
@@ -70,20 +90,40 @@ class FakeGrpcContext:
     """Minimal stub for grpc.aio.ServicerContext in tests."""
 
     def __init__(self) -> None:
+        """Initialize with no abort state."""
         self._code: object = None
         self._details: str | None = None
         self.aborted: bool = False
 
     async def abort(self, code: object, details: str) -> None:
+        """Record abort and raise to exit the servicer under test.
+
+        Args:
+            code: gRPC status code.
+            details: Error details string.
+
+        Raises:
+            _AbortSignal: Always, to unwind the test call stack.
+        """
         self._code = code
         self._details = details
         self.aborted = True
         raise _AbortSignal(code, details)
 
     def set_code(self, code: object) -> None:
+        """Set the recorded status code.
+
+        Args:
+            code: gRPC status code.
+        """
         self._code = code
 
     def set_details(self, details: str) -> None:
+        """Set the recorded error details.
+
+        Args:
+            details: Error details string.
+        """
         self._details = details
 
 
@@ -107,9 +147,10 @@ class _AbortSignal(Exception):
 
 
 class TestSessionState:
-    """Pure unit tests for SessionState dataclass properties."""
+    """Unit tests for SessionState dataclass."""
 
     def test_initial_state(self) -> None:
+        """Fresh session has expected defaults."""
         state = SessionState(session_id="abc123")
         assert state.session_id == "abc123"
         assert state.current_tier == 1
@@ -121,18 +162,22 @@ class TestSessionState:
         assert state.report is None
 
     def test_ttl_positive_on_fresh_session(self) -> None:
+        """New session TTL is positive and within the default idle window."""
         state = SessionState(session_id="abc")
         assert 0 < state.ttl_seconds <= _DEFAULT_TTL
 
     def test_not_expired_when_fresh(self) -> None:
+        """Fresh session is not expired."""
         state = SessionState(session_id="abc")
         assert state.expired is False
 
     def test_not_expiring_soon_when_fresh(self) -> None:
+        """Fresh session is not in the expiring-soon window."""
         state = SessionState(session_id="abc")
         assert state.expiring_soon is False
 
     def test_expired_after_idle_timeout(self) -> None:
+        """Session expires after idle TTL elapses."""
         state = SessionState(session_id="abc")
         state.last_activity_at = datetime.now(timezone.utc) - timedelta(
             seconds=_DEFAULT_TTL + 1,
@@ -140,6 +185,7 @@ class TestSessionState:
         assert state.expired is True
 
     def test_expired_after_max_lifetime(self) -> None:
+        """Session expires after max lifetime is exceeded."""
         state = SessionState(session_id="abc")
         state.created_at = datetime.now(timezone.utc) - timedelta(
             seconds=_MAX_LIFETIME + 1,
@@ -147,6 +193,7 @@ class TestSessionState:
         assert state.expired is True
 
     def test_expiring_soon_within_warning_window(self) -> None:
+        """Low remaining TTL marks session as expiring soon."""
         state = SessionState(session_id="abc")
         state.last_activity_at = datetime.now(timezone.utc) - timedelta(
             seconds=_DEFAULT_TTL - 200,
@@ -154,6 +201,7 @@ class TestSessionState:
         assert state.expiring_soon is True
 
     def test_touch_resets_idle_timer(self) -> None:
+        """touch() refreshes idle activity and increases remaining TTL."""
         state = SessionState(session_id="abc")
         state.last_activity_at = datetime.now(timezone.utc) - timedelta(seconds=600)
         old_ttl = state.ttl_seconds
@@ -161,10 +209,16 @@ class TestSessionState:
         assert state.ttl_seconds > old_ttl
 
     def test_lifetime_seconds_near_zero_on_create(self) -> None:
+        """lifetime_seconds is near zero immediately after creation."""
         state = SessionState(session_id="abc")
         assert state.lifetime_seconds < 5
 
     def test_cleanup_removes_temp_dir(self, tmp_path: Path) -> None:
+        """cleanup() deletes temp_dir contents and clears the field.
+
+        Args:
+            tmp_path: Pytest temporary directory fixture.
+        """
         state = SessionState(session_id="abc")
         temp = tmp_path / "session_temp"
         temp.mkdir()
@@ -176,6 +230,7 @@ class TestSessionState:
         assert state.temp_dir is None
 
     def test_cleanup_noop_without_temp_dir(self) -> None:
+        """cleanup() does nothing when temp_dir is unset."""
         state = SessionState(session_id="abc")
         state.cleanup()
         assert state.temp_dir is None
@@ -187,9 +242,10 @@ class TestSessionState:
 
 
 class TestSessionStore:
-    """Tests for SessionStore CRUD and capacity limits."""
+    """Unit tests for SessionStore CRUD and capacity limits."""
 
     def test_create_returns_unique_session(self) -> None:
+        """create() yields distinct session IDs and increments count."""
         store = SessionStore()
         s1 = store.create()
         s2 = store.create()
@@ -197,15 +253,18 @@ class TestSessionStore:
         assert store.count == 2
 
     def test_get_returns_existing_session(self) -> None:
+        """get() returns the same object for a known session ID."""
         store = SessionStore()
         s = store.create()
         assert store.get(s.session_id) is s
 
     def test_get_returns_none_for_unknown_id(self) -> None:
+        """get() returns None for an unknown session ID."""
         store = SessionStore()
         assert store.get("nonexistent") is None
 
     def test_get_auto_removes_expired_session(self) -> None:
+        """get() drops expired sessions and returns None."""
         store = SessionStore()
         s = store.create()
         s.last_activity_at = datetime.now(timezone.utc) - timedelta(
@@ -215,6 +274,7 @@ class TestSessionStore:
         assert store.count == 0
 
     def test_touch_refreshes_activity(self) -> None:
+        """touch() updates last activity so TTL recovers."""
         store = SessionStore()
         s = store.create()
         s.last_activity_at = datetime.now(timezone.utc) - timedelta(seconds=100)
@@ -222,16 +282,19 @@ class TestSessionStore:
         assert s.ttl_seconds > _DEFAULT_TTL - 5
 
     def test_remove_returns_true(self) -> None:
+        """remove() returns True and clears the session from the store."""
         store = SessionStore()
         s = store.create()
         assert store.remove(s.session_id) is True
         assert store.count == 0
 
     def test_remove_unknown_returns_false(self) -> None:
+        """remove() returns False for an unknown session ID."""
         store = SessionStore()
         assert store.remove("nope") is False
 
     def test_max_sessions_raises(self) -> None:
+        """create() raises ResourceExhaustedError at the session cap."""
         store = SessionStore()
         for _ in range(_MAX_SESSIONS):
             store.create()
@@ -239,6 +302,7 @@ class TestSessionStore:
             store.create()
 
     def test_remove_frees_slot_for_new_session(self) -> None:
+        """Removing a session allows create() under the max again."""
         store = SessionStore()
         sessions = [store.create() for _ in range(_MAX_SESSIONS)]
         store.remove(sessions[0].session_id)
@@ -246,6 +310,11 @@ class TestSessionStore:
         assert store.count == _MAX_SESSIONS
 
     def test_remove_cleans_up_temp_dir(self, tmp_path: Path) -> None:
+        """remove() runs cleanup and deletes the session temp directory.
+
+        Args:
+            tmp_path: Pytest temporary directory fixture.
+        """
         store = SessionStore()
         s = store.create()
         temp = tmp_path / "sess_tmp"
@@ -256,36 +325,35 @@ class TestSessionStore:
 
 
 class TestSessionStoreReaper:
-    """Async tests for the background reaper task."""
+    """Unit tests for SessionStore background reaper behavior."""
 
     async def test_reaper_collects_expired_sessions(self) -> None:
+        """Manual sweep removes expired sessions from the store."""
         store = SessionStore()
         s = store.create()
         s.last_activity_at = datetime.now(timezone.utc) - timedelta(
             seconds=_DEFAULT_TTL + 10,
         )
 
-        expired = [
-            sid for sid, st in store._sessions.items() if st.expired
-        ]
+        expired = [sid for sid, st in store._sessions.items() if st.expired]
         for sid in expired:
             store._remove(sid)
 
         assert store.count == 0
 
     async def test_reaper_preserves_active_sessions(self) -> None:
+        """Sweep keeps non-expired sessions in the store."""
         store = SessionStore()
         store.create().touch()
 
-        expired = [
-            sid for sid, st in store._sessions.items() if st.expired
-        ]
+        expired = [sid for sid, st in store._sessions.items() if st.expired]
         for sid in expired:
             store._remove(sid)
 
         assert store.count == 1
 
     async def test_start_and_stop_reaper(self) -> None:
+        """start_reaper and stop_reaper manage the background task lifecycle."""
         store = SessionStore()
         store.start_reaper()
         assert store._reaper_task is not None
@@ -302,9 +370,10 @@ class TestSessionStoreReaper:
 
 
 class TestBuildProposals:
-    """Tests for _build_proposals_from_remaining."""
+    """Unit tests for _build_proposals_from_remaining."""
 
     def test_converts_violations_to_proposals(self) -> None:
+        """Violations map to Proposal messages with tier and line ranges."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         violations = [
@@ -323,10 +392,12 @@ class TestBuildProposals:
         assert proposals[1].line_end == 15
 
     def test_missing_line_defaults_to_zero(self) -> None:
+        """Omitted line info becomes zero line_start and line_end."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         proposals = PrimaryServicer._build_proposals_from_remaining(
-            [{"file": "x.yml", "rule_id": "L003"}], tier=3,
+            [{"file": "x.yml", "rule_id": "L003"}],
+            tier=3,
         )
         assert proposals[0].line_start == 0
         assert proposals[0].line_end == 0
@@ -334,16 +405,20 @@ class TestBuildProposals:
 
 
 class TestSessionApplyApproved:
-    """Tests for _session_apply_approved."""
+    """Unit tests for _session_apply_approved."""
 
     def test_full_approval_sets_complete(self) -> None:
+        """Approving all proposals marks session complete and clears proposals."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         session = SessionState(session_id="test")
         session.proposals = {
             "t2-0000": Proposal(
-                id="t2-0000", file="t.yml", rule_id="L001",
-                before_text="old", after_text="new",
+                id="t2-0000",
+                file="t.yml",
+                rule_id="L001",
+                before_text="old",
+                after_text="new",
             ),
         }
         session.status = 1
@@ -355,14 +430,13 @@ class TestSessionApplyApproved:
         assert session.proposals == {}
 
     def test_partial_approval_stays_awaiting(self) -> None:
+        """Partial approval leaves status awaiting and remaining proposals."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         session = SessionState(session_id="test")
         session.proposals = {
-            "p1": Proposal(id="p1", file="a.yml", rule_id="L001",
-                           before_text="old1", after_text="new1"),
-            "p2": Proposal(id="p2", file="b.yml", rule_id="L002",
-                           before_text="old2", after_text="new2"),
+            "p1": Proposal(id="p1", file="a.yml", rule_id="L001", before_text="old1", after_text="new1"),
+            "p2": Proposal(id="p2", file="b.yml", rule_id="L002", before_text="old2", after_text="new2"),
         }
         session.status = 1
         session.working_files = {"a.yml": b"old1", "b.yml": b"old2"}
@@ -373,13 +447,17 @@ class TestSessionApplyApproved:
         assert "p2" in session.proposals
 
     def test_approval_modifies_working_files(self) -> None:
+        """Approved proposal replaces before_text with after_text in working_files."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         session = SessionState(session_id="test")
         session.proposals = {
             "p1": Proposal(
-                id="p1", file="test.yml", rule_id="L001",
-                before_text="hello", after_text="goodbye",
+                id="p1",
+                file="test.yml",
+                rule_id="L001",
+                before_text="hello",
+                after_text="goodbye",
             ),
         }
         session.status = 1
@@ -390,9 +468,10 @@ class TestSessionApplyApproved:
 
 
 class TestSessionBuildResult:
-    """Tests for _session_build_result async generator."""
+    """Unit tests for _session_build_result async generator."""
 
     async def test_includes_only_changed_files(self) -> None:
+        """Result patches list only files whose content changed."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         servicer = PrimaryServicer()
@@ -408,6 +487,7 @@ class TestSessionBuildResult:
         assert patches[0].path == "a.yml"
 
     async def test_diff_is_unified_format(self) -> None:
+        """Patch diff uses unified diff markers and line changes."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         servicer = PrimaryServicer()
@@ -423,9 +503,10 @@ class TestSessionBuildResult:
 
 
 class TestSessionReplayState:
-    """Tests for _session_replay_state (session resume)."""
+    """Unit tests for _session_replay_state (session resume)."""
 
     async def test_replays_tier1_summary(self) -> None:
+        """Replay emits tier1_complete when tier1 patches exist."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         servicer = PrimaryServicer()
@@ -441,6 +522,7 @@ class TestSessionReplayState:
         assert "tier1_complete" in types
 
     async def test_replays_pending_proposals(self) -> None:
+        """Replay emits tier1_complete and proposals when awaiting approval."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         servicer = PrimaryServicer()
@@ -457,6 +539,7 @@ class TestSessionReplayState:
         assert "proposals" in types
 
     async def test_replays_result_when_complete(self) -> None:
+        """Replay emits final result when session status is complete."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         servicer = PrimaryServicer()
@@ -477,17 +560,19 @@ class TestSessionReplayState:
 
 
 async def _mock_session_process_complete(
-    self: object, session: SessionState, scan_id: str,
+    self: object,
+    session: SessionState,
+    scan_id: str,
 ) -> AsyncIterator[SessionEvent]:
     """Mock _session_process that completes immediately with no changes.
 
     Args:
-        self: Servicer instance (unused).
-        session: Session state to populate.
-        scan_id: Scan identifier (unused).
+        self: Servicer instance (unused, required by patch.object).
+        session: Session state to update.
+        scan_id: Scan identifier (unused in this mock).
 
     Yields:
-        SessionEvent: Messages for tier1 completion and result.
+        SessionEvent: Tier1 summary then final result.
     """
     session.status = 3
     session.report = FixReport(passes=1, fixed=0)
@@ -500,21 +585,26 @@ async def _mock_session_process_complete(
 
 
 async def _mock_session_process_with_proposals(
-    self: object, session: SessionState, scan_id: str,
+    self: object,
+    session: SessionState,
+    scan_id: str,
 ) -> AsyncIterator[SessionEvent]:
-    """Mock _session_process that yields Tier 1 then proposals for approval.
+    """Mock _session_process that yields tier 1 then proposals for approval.
 
     Args:
-        self: Servicer instance (unused).
-        session: Session state to populate with proposals.
-        scan_id: Scan identifier (unused).
+        self: Servicer instance (unused, required by patch.object).
+        session: Session state to update.
+        scan_id: Scan identifier (unused in this mock).
 
     Yields:
-        SessionEvent: Messages for tier1 completion and proposals.
+        SessionEvent: Tier1 summary then proposals ready for approval.
     """
     p = Proposal(
-        id="t2-0000", file="test.yml", rule_id="L001",
-        before_text="old", after_text="new",
+        id="t2-0000",
+        file="test.yml",
+        rule_id="L001",
+        before_text="old",
+        after_text="new",
         explanation="Replace old with new",
     )
     session.proposals = {"t2-0000": p}
@@ -532,23 +622,27 @@ async def _mock_session_process_with_proposals(
 
 
 class TestFixSessionRPC:
-    """Integration tests calling FixSession directly on the servicer."""
+    """Integration tests for FixSession RPC on the servicer."""
 
     async def test_session_created_on_first_upload(self) -> None:
-        """First upload chunk yields SessionCreated with ID and TTL."""
+        """First upload yields SessionCreated with ID and positive TTL."""
         from apme_engine.daemon.primary_server import PrimaryServicer
 
         servicer = PrimaryServicer()
         stream = AsyncCommandStream()
         ctx = FakeGrpcContext()
 
-        stream.send(SessionCommand(
-            upload=ScanChunk(scan_id="test-1", last=True),
-        ))
+        stream.send(
+            SessionCommand(
+                upload=ScanChunk(scan_id="test-1", last=True),
+            )
+        )
 
         created = None
         with patch.object(
-            PrimaryServicer, "_session_process", _mock_session_process_complete,
+            PrimaryServicer,
+            "_session_process",
+            _mock_session_process_complete,
         ):
             async for event in servicer.FixSession(stream, ctx):  # type: ignore[arg-type]
                 oneof = event.WhichOneof("event")
@@ -571,13 +665,17 @@ class TestFixSessionRPC:
         stream = AsyncCommandStream()
         ctx = FakeGrpcContext()
 
-        stream.send(SessionCommand(
-            upload=ScanChunk(scan_id="test-close", last=True),
-        ))
+        stream.send(
+            SessionCommand(
+                upload=ScanChunk(scan_id="test-close", last=True),
+            )
+        )
 
         last_event = None
         with patch.object(
-            PrimaryServicer, "_session_process", _mock_session_process_complete,
+            PrimaryServicer,
+            "_session_process",
+            _mock_session_process_complete,
         ):
             async for event in servicer.FixSession(stream, ctx):  # type: ignore[arg-type]
                 last_event = event
@@ -598,14 +696,18 @@ class TestFixSessionRPC:
         stream = AsyncCommandStream()
         ctx = FakeGrpcContext()
 
-        stream.send(SessionCommand(
-            upload=ScanChunk(scan_id="test-ext", last=True),
-        ))
+        stream.send(
+            SessionCommand(
+                upload=ScanChunk(scan_id="test-ext", last=True),
+            )
+        )
 
         created_count = 0
         extend_sent = False
         with patch.object(
-            PrimaryServicer, "_session_process", _mock_session_process_complete,
+            PrimaryServicer,
+            "_session_process",
+            _mock_session_process_complete,
         ):
             async for event in servicer.FixSession(stream, ctx):  # type: ignore[arg-type]
                 oneof = event.WhichOneof("event")
@@ -640,9 +742,11 @@ class TestFixSessionRPC:
 
         stream = AsyncCommandStream()
         ctx = FakeGrpcContext()
-        stream.send(SessionCommand(
-            resume=ResumeRequest(session_id=session.session_id),
-        ))
+        stream.send(
+            SessionCommand(
+                resume=ResumeRequest(session_id=session.session_id),
+            )
+        )
 
         events = []
         async for event in servicer.FixSession(stream, ctx):  # type: ignore[arg-type]
@@ -666,9 +770,11 @@ class TestFixSessionRPC:
         stream = AsyncCommandStream()
         ctx = FakeGrpcContext()
 
-        stream.send(SessionCommand(
-            resume=ResumeRequest(session_id="does-not-exist"),
-        ))
+        stream.send(
+            SessionCommand(
+                resume=ResumeRequest(session_id="does-not-exist"),
+            )
+        )
 
         with pytest.raises(_AbortSignal):
             async for _event in servicer.FixSession(stream, ctx):  # type: ignore[arg-type]
@@ -684,9 +790,11 @@ class TestFixSessionRPC:
         stream = AsyncCommandStream()
         ctx = FakeGrpcContext()
 
-        stream.send(SessionCommand(
-            upload=ScanChunk(scan_id="test-approval", last=True),
-        ))
+        stream.send(
+            SessionCommand(
+                upload=ScanChunk(scan_id="test-approval", last=True),
+            )
+        )
 
         events: list[SessionEvent] = []
         with patch.object(
@@ -699,9 +807,11 @@ class TestFixSessionRPC:
                 oneof = event.WhichOneof("event")
                 if oneof == "proposals":
                     ids = [p.id for p in event.proposals.proposals]
-                    stream.send(SessionCommand(
-                        approve=ApprovalRequest(approved_ids=ids),
-                    ))
+                    stream.send(
+                        SessionCommand(
+                            approve=ApprovalRequest(approved_ids=ids),
+                        )
+                    )
                 elif oneof == "result":
                     stream.send(SessionCommand(close=CloseRequest()))
                 elif oneof == "closed":
@@ -727,10 +837,12 @@ class TestFixSessionRPC:
 
         stream = AsyncCommandStream()
         ctx = FakeGrpcContext()
-        stream.send(SessionCommand(
-            upload=ScanChunk(scan_id="over-limit", last=True),
-        ))
+        stream.send(
+            SessionCommand(
+                upload=ScanChunk(scan_id="over-limit", last=True),
+            )
+        )
 
-        with pytest.raises(Exception):
+        with pytest.raises(_AbortSignal):
             async for _event in servicer.FixSession(stream, ctx):  # type: ignore[arg-type]
                 pass

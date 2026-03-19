@@ -56,11 +56,17 @@ class DaemonState:
     services: dict[str, str] = field(default_factory=dict)
 
     def save(self) -> None:
+        """Persist daemon state to disk."""
         _DATA_DIR.mkdir(parents=True, exist_ok=True)
         _STATE_FILE.write_text(json.dumps(asdict(self), indent=2) + "\n")
 
     @classmethod
     def load(cls) -> DaemonState | None:
+        """Load daemon state from disk, or None if absent/corrupt.
+
+        Returns:
+            Loaded DaemonState or None.
+        """
         if not _STATE_FILE.exists():
             return None
         try:
@@ -71,6 +77,7 @@ class DaemonState:
 
     @staticmethod
     def remove() -> None:
+        """Delete the persisted daemon state file."""
         with __import__("contextlib").suppress(FileNotFoundError):
             _STATE_FILE.unlink()
 
@@ -326,9 +333,7 @@ def ensure_daemon() -> str:
     if state is not None:
         current = _current_version()
         if state.version != current:
-            sys.stderr.write(
-                f"Daemon version {state.version} != installed {current}, restarting...\n"
-            )
+            sys.stderr.write(f"Daemon version {state.version} != installed {current}, restarting...\n")
             sys.stderr.flush()
             stop_daemon()
         else:

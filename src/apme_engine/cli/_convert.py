@@ -48,9 +48,11 @@ def violation_proto_to_dict(
         "line": line,
         "path": v.path,
         "remediation_class": _PROTO_TO_REMEDIATION_CLASS.get(
-            v.remediation_class, "ai-candidate",  # type: ignore[attr-defined]
+            v.remediation_class,
+            "ai-candidate",
         ),
         "remediation_resolution": _PROTO_TO_RESOLUTION.get(
-            v.remediation_resolution, "unresolved",  # type: ignore[attr-defined]
+            v.remediation_resolution,
+            "unresolved",
         ),
     }

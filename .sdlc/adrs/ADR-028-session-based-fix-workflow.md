@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted (implemented in PR #43)
 
 ## Date
 
@@ -355,3 +355,4 @@ async for event in stub.FixSession(command_iter()):
 | Date | Author | Change |
 |------|--------|--------|
 | 2026-03-19 | AI Agent | Initial proposal |
+| 2026-03-19 | AI Agent | Accepted: implemented in PR #43. SessionStore, FixSession handler, CLI event loop, and 41 tests in test_session.py. |

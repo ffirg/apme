@@ -9,12 +9,13 @@ from __future__ import annotations
 import argparse
 import queue
 import sys
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 
 import grpc
 
-from apme.v1 import primary_pb2_grpc
+from apme.v1 import common_pb2, primary_pb2_grpc
 from apme.v1.primary_pb2 import (
     ApprovalRequest,
     CloseRequest,
@@ -28,6 +29,11 @@ from apme_engine.daemon.chunked_fs import yield_scan_chunks
 
 
 def run_fix(args: argparse.Namespace) -> None:
+    """Execute the fix subcommand.
+
+    Args:
+        args: Parsed CLI arguments.
+    """
     target = Path(args.target).resolve()
     if not target.exists():
         sys.stderr.write(f"Target not found: {args.target}\n")
@@ -53,23 +59,33 @@ def run_fix(args: argparse.Namespace) -> None:
 
     cmd_queue: queue.Queue[SessionCommand | None] = queue.Queue()
 
-    first = True
-    for chunk in base_chunks:
-        if first:
-            cmd_chunk = ScanChunk(
-                scan_id=chunk.scan_id,
-                project_root=chunk.project_root,
-                options=chunk.options if chunk.HasField("options") else None,
-                files=list(chunk.files),
-                last=chunk.last,
-                fix_options=fix_opts,
-            )
-            first = False
-        else:
-            cmd_chunk = chunk
-        cmd_queue.put(SessionCommand(upload=cmd_chunk))
+    def _upload_producer() -> None:
+        """Stream upload chunks into the command queue in a background thread."""
+        first = True
+        for chunk in base_chunks:
+            if first:
+                cmd_chunk = ScanChunk(
+                    scan_id=chunk.scan_id,
+                    project_root=chunk.project_root,
+                    options=chunk.options if chunk.HasField("options") else None,
+                    files=list(chunk.files),
+                    last=chunk.last,
+                    fix_options=fix_opts,
+                )
+                first = False
+            else:
+                cmd_chunk = chunk
+            cmd_queue.put(SessionCommand(upload=cmd_chunk))
+
+    upload_thread = threading.Thread(target=_upload_producer, daemon=True)
+    upload_thread.start()
 
     def command_iter() -> Iterator[SessionCommand]:
+        """Yield commands from the queue (uploads + interactive commands).
+
+        Yields:
+            SessionCommand: Next command until a None sentinel stops iteration.
+        """
         while True:
             cmd = cmd_queue.get()
             if cmd is None:
@@ -120,9 +136,11 @@ def run_fix(args: argparse.Namespace) -> None:
                 else:
                     approved = _interactive_review(proposals)
 
-                cmd_queue.put(SessionCommand(
-                    approve=ApprovalRequest(approved_ids=approved),
-                ))
+                cmd_queue.put(
+                    SessionCommand(
+                        approve=ApprovalRequest(approved_ids=approved),
+                    )
+                )
 
             elif oneof == "approval_ack":
                 ack = event.approval_ack
@@ -175,7 +193,7 @@ def run_fix(args: argparse.Namespace) -> None:
 
 def _render_tier1(summary: object) -> None:
     format_diffs = list(summary.format_diffs)  # type: ignore[attr-defined]
-    patches = list(summary.applied_patches)  # type: ignore[attr-defined]
+    applied = list(summary.applied_patches)  # type: ignore[attr-defined]
     report = summary.report  # type: ignore[attr-defined]
 
     if format_diffs:
@@ -192,6 +210,9 @@ def _render_tier1(summary: object) -> None:
         if report.oscillation_detected:
             sys.stderr.write(" (oscillation detected)")
         sys.stderr.write("\n")
+
+    if applied:
+        sys.stderr.write(f"Applied {len(applied)} Tier 1 patch(es)\n")
 
 
 def _interactive_review(proposals: list[object]) -> list[str]:
@@ -232,7 +253,7 @@ def _interactive_review(proposals: list[object]) -> list[str]:
         elif answer == "n":
             sys.stderr.write("  Skipped\n")
         elif answer == "a":
-            approved.extend(p.id for p in proposals[i - 1:])  # type: ignore[attr-defined]
+            approved.extend(p.id for p in proposals[i - 1 :])  # type: ignore[attr-defined]
             sys.stderr.write(f"  Accepted remaining {total - i + 1} proposal(s)\n")
             break
         elif answer == "s":
@@ -248,9 +269,13 @@ def _interactive_review(proposals: list[object]) -> list[str]:
 def _prompt_ynasq() -> str:
     while True:
         try:
-            answer = input(
-                "\nAccept? [y]es / [n]o / [a]ccept all / [s]kip rest / [q]uit: ",
-            ).strip().lower()
+            answer = (
+                input(
+                    "\nAccept? [y]es / [n]o / [a]ccept all / [s]kip rest / [q]uit: ",
+                )
+                .strip()
+                .lower()
+            )
         except (EOFError, KeyboardInterrupt):
             return "q"
         if answer in ("y", "yes"):
@@ -295,8 +320,8 @@ def _render_remaining(result: object) -> None:
     if not remaining:
         return
     ai_count = sum(
-        1 for v in remaining
-        if getattr(v, "remediation_class", "") == "ai_candidate"
+        getattr(v, "remediation_class", 0) == common_pb2.REMEDIATION_CLASS_AI_CANDIDATE  # type: ignore[attr-defined]
+        for v in remaining
     )
     manual_count = len(remaining) - ai_count
     if ai_count:

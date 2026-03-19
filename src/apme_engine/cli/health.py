@@ -14,6 +14,11 @@ from apme_engine.cli.discovery import resolve_primary
 
 
 def run_health_check(args: argparse.Namespace) -> None:
+    """Execute the health-check subcommand.
+
+    Args:
+        args: Parsed CLI arguments.
+    """
     channel, addr = resolve_primary(args)
     stub = primary_pb2_grpc.PrimaryStub(channel)  # type: ignore[no-untyped-call]
 

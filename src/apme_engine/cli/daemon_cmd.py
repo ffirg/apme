@@ -9,20 +9,21 @@ from apme_engine.daemon.launcher import daemon_status, start_daemon, stop_daemon
 
 
 def run_daemon(args: argparse.Namespace) -> None:
+    """Execute the daemon subcommand.
+
+    Args:
+        args: Parsed CLI arguments.
+    """
     cmd = args.daemon_command
 
     if cmd == "start":
         state = daemon_status()
         if state is not None:
-            sys.stderr.write(
-                f"Daemon already running (pid {state.pid}, primary {state.primary})\n"
-            )
+            sys.stderr.write(f"Daemon already running (pid {state.pid}, primary {state.primary})\n")
             return
         try:
             state = start_daemon()
-            sys.stderr.write(
-                f"Daemon started (pid {state.pid}, primary {state.primary})\n"
-            )
+            sys.stderr.write(f"Daemon started (pid {state.pid}, primary {state.primary})\n")
         except RuntimeError as e:
             sys.stderr.write(f"Failed to start daemon: {e}\n")
             sys.exit(1)

@@ -627,8 +627,6 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
     # ── FixSession RPC (bidirectional stream, ADR-028) ─────────────────
 
     _session_store: SessionStore | None = None
-    _session_fix_opts: dict[str, FixOptions] = {}
-    _session_scan_opts: dict[str, ScanOptions] = {}
 
     def _get_session_store(self) -> SessionStore:
         if self._session_store is None:
@@ -729,6 +727,10 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
                     async for event in self._session_replay_state(session):
                         yield event
 
+                # TODO: Emit ExpirationWarning when session.expiring_soon
+                # becomes True.  Requires a background asyncio task per
+                # session or periodic checks between commands.
+
                 elif oneof == "close":
                     if session:
                         store.remove(session.session_id)
@@ -755,9 +757,9 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         session = store.create()
         scan_id = first_chunk.scan_id or session.session_id
         if first_chunk.HasField("fix_options"):
-            self._session_fix_opts[scan_id] = first_chunk.fix_options  # type: ignore[assignment]
+            session.fix_options = first_chunk.fix_options
         if first_chunk.HasField("options"):
-            self._session_scan_opts[scan_id] = first_chunk.options  # type: ignore[assignment]
+            session.scan_options = first_chunk.options
         return session, scan_id
 
     @staticmethod
@@ -786,9 +788,8 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
 
         all_files = [File(path=p, content=c) for p, c in session.working_files.items()]
 
-        # Extract fix options from the first chunk (stored during upload)
-        fix_opts = self._session_fix_opts.pop(scan_id, None)
-        scan_opts = self._session_scan_opts.pop(scan_id, None)
+        fix_opts = session.fix_options
+        scan_opts = session.scan_options
 
         ansible_core_version = ""
         collection_specs: list[str] = []
@@ -908,6 +909,9 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
             return violations
 
         registry = build_default_registry()
+        # TODO(ADR-025): Wire AIProvider into RemediationEngine when
+        # fix_opts.enable_ai is True.  Currently Tier 2 AI proposals are
+        # never generated because no ai_provider is supplied.
         engine = RemediationEngine(
             registry=registry,
             scan_fn=scan_fn,
@@ -1015,6 +1019,12 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
     ) -> list[Proposal]:
         """Convert remaining violations into Proposal protos for client review.
 
+        These proposals intentionally omit before_text/after_text/diff_hunk:
+        they represent violations that need AI (Tier 2) or agentic (Tier 3)
+        processing to generate actual fixes.  The approval path in
+        _session_apply_approved skips proposals without after_text.
+        When Tier 2 AI is wired (ADR-025), it will populate these fields.
+
         Args:
             violations: Violation dicts from the remediation report.
             tier: Remediation tier (2=AI, 3=agentic).
@@ -1062,13 +1072,17 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         """
         applied = 0
         for pid in approved_ids:
-            proposal = session.proposals.pop(pid, None)
-            if proposal and proposal.after_text:
-                content = session.working_files.get(proposal.file, b"")
-                text = content.decode("utf-8", errors="replace") if isinstance(content, bytes) else str(content)
-                new_text = text.replace(proposal.before_text, proposal.after_text, 1)
-                session.working_files[proposal.file] = new_text.encode("utf-8")
-                applied += 1
+            proposal = session.proposals.get(pid)
+            if not proposal or not proposal.after_text:
+                continue
+            content = session.working_files.get(proposal.file, b"")
+            text = content.decode("utf-8", errors="replace") if isinstance(content, bytes) else str(content)
+            if proposal.before_text not in text:
+                continue
+            new_text = text.replace(proposal.before_text, proposal.after_text, 1)
+            session.working_files[proposal.file] = new_text.encode("utf-8")
+            session.proposals.pop(pid)
+            applied += 1
 
         if not session.proposals:
             session.status = 3  # COMPLETE

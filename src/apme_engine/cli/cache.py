@@ -12,6 +12,11 @@ from apme_engine.cli.discovery import resolve_primary
 
 
 def run_cache(args: argparse.Namespace) -> None:
+    """Execute the cache subcommand.
+
+    Args:
+        args: Parsed CLI arguments.
+    """
     channel, _ = resolve_primary(args)
     stub = primary_pb2_grpc.PrimaryStub(channel)  # type: ignore[no-untyped-call]
 

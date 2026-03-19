@@ -14,6 +14,11 @@ from apme_engine.daemon.chunked_fs import yield_scan_chunks
 
 
 def run_format(args: argparse.Namespace) -> None:
+    """Execute the format subcommand.
+
+    Args:
+        args: Parsed CLI arguments.
+    """
     target = Path(args.target).resolve()
     if not target.exists():
         sys.stderr.write(f"Target not found: {args.target}\n")
@@ -70,8 +75,6 @@ def _safe_write(path: Path, expected_original: bytes, new_content: bytes) -> Non
     """
     current = path.read_bytes()
     if current != expected_original:
-        sys.stderr.write(
-            f"WARNING: {path} was modified since scan — skipping to avoid data loss.\n"
-        )
+        sys.stderr.write(f"WARNING: {path} was modified since scan — skipping to avoid data loss.\n")
         return
     path.write_bytes(new_content)

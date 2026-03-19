@@ -20,8 +20,10 @@ from pathlib import Path
 from apme.v1.primary_pb2 import (
     FileDiff,
     FilePatch,
+    FixOptions,
     FixReport,
     Proposal,
+    ScanOptions,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,6 +52,8 @@ class SessionState:
         last_activity_at: Last client interaction timestamp.
         idempotency_ok: Whether formatter was idempotent.
         status: Session status (1=AWAITING_APPROVAL, 2=PROCESSING, 3=COMPLETE).
+        fix_options: Fix options from the client's first upload chunk.
+        scan_options: Scan options from the client's first upload chunk.
         ai_proposals: Raw engine AI proposals for downstream use.
         remaining_ai: Remaining AI-candidate violations.
         remaining_manual: Remaining manual-review violations.
@@ -68,6 +72,8 @@ class SessionState:
     last_activity_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     idempotency_ok: bool = True
     status: int = 2  # PROCESSING
+    fix_options: FixOptions | None = None
+    scan_options: ScanOptions | None = None
 
     # Raw engine AI proposals (not proto) for downstream use
     ai_proposals: list[object] = field(default_factory=list)
@@ -78,25 +84,31 @@ class SessionState:
 
     @property
     def ttl_seconds(self) -> int:
+        """Remaining idle TTL in seconds."""
         elapsed = (datetime.now(timezone.utc) - self.last_activity_at).total_seconds()
         return max(0, _DEFAULT_TTL - int(elapsed))
 
     @property
     def lifetime_seconds(self) -> int:
+        """Total session age in seconds."""
         return int((datetime.now(timezone.utc) - self.created_at).total_seconds())
 
     @property
     def expired(self) -> bool:
+        """True if session has timed out or exceeded max lifetime."""
         return self.ttl_seconds <= 0 or self.lifetime_seconds >= _MAX_LIFETIME
 
     @property
     def expiring_soon(self) -> bool:
+        """True if session will expire within 5 minutes."""
         return 0 < self.ttl_seconds <= 300
 
     def touch(self) -> None:
+        """Reset idle timer to now."""
         self.last_activity_at = datetime.now(timezone.utc)
 
     def cleanup(self) -> None:
+        """Remove temp directory if present."""
         if self.temp_dir and self.temp_dir.is_dir():
             with contextlib.suppress(OSError):
                 shutil.rmtree(self.temp_dir)
@@ -107,14 +119,24 @@ class SessionStore:
     """In-memory store of active fix sessions with background reaper."""
 
     def __init__(self) -> None:
+        """Initialize empty session store."""
         self._sessions: dict[str, SessionState] = {}
         self._reaper_task: asyncio.Task[None] | None = None
 
     @property
     def count(self) -> int:
+        """Number of active sessions."""
         return len(self._sessions)
 
     def create(self) -> SessionState:
+        """Create a new session, raising ResourceExhaustedError if at limit.
+
+        Returns:
+            New SessionState.
+
+        Raises:
+            ResourceExhaustedError: If at max concurrent sessions.
+        """
         if len(self._sessions) >= _MAX_SESSIONS:
             msg = (
                 f"Maximum concurrent sessions ({_MAX_SESSIONS}) reached. "
@@ -128,6 +150,14 @@ class SessionStore:
         return state
 
     def get(self, session_id: str) -> SessionState | None:
+        """Look up a session by ID, returning None if missing or expired.
+
+        Args:
+            session_id: Session identifier.
+
+        Returns:
+            SessionState or None if expired/missing.
+        """
         state = self._sessions.get(session_id)
         if state and state.expired:
             self._remove(session_id)
@@ -135,11 +165,24 @@ class SessionStore:
         return state
 
     def touch(self, session_id: str) -> None:
+        """Refresh a session's idle timer.
+
+        Args:
+            session_id: Session identifier.
+        """
         state = self._sessions.get(session_id)
         if state:
             state.touch()
 
     def remove(self, session_id: str) -> bool:
+        """Remove and clean up a session by ID.
+
+        Args:
+            session_id: Session identifier.
+
+        Returns:
+            True if session was removed.
+        """
         return self._remove(session_id)
 
     def _remove(self, session_id: str) -> bool:
@@ -151,10 +194,12 @@ class SessionStore:
         return False
 
     def start_reaper(self) -> None:
+        """Start the background reaper task."""
         if self._reaper_task is None or self._reaper_task.done():
             self._reaper_task = asyncio.ensure_future(self._reap_loop())
 
     def stop_reaper(self) -> None:
+        """Cancel the background reaper task."""
         if self._reaper_task and not self._reaper_task.done():
             self._reaper_task.cancel()
             self._reaper_task = None
@@ -162,9 +207,7 @@ class SessionStore:
     async def _reap_loop(self) -> None:
         while True:
             await asyncio.sleep(_REAP_INTERVAL)
-            expired = [
-                sid for sid, state in self._sessions.items() if state.expired
-            ]
+            expired = [sid for sid, state in self._sessions.items() if state.expired]
             for sid in expired:
                 logger.info("Reaping expired session %s", sid)
                 self._remove(sid)

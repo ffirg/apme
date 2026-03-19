@@ -24,6 +24,11 @@ from apme_engine.daemon.chunked_fs import yield_scan_chunks
 
 
 def run_scan(args: argparse.Namespace) -> None:
+    """Execute the scan subcommand.
+
+    Args:
+        args: Parsed CLI arguments.
+    """
     verbosity = getattr(args, "verbose", 0) or 0
 
     try:

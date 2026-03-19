@@ -29,6 +29,15 @@ from apme_engine.cli.ansi import (
 
 
 def sort_violations(violations: list[ViolationDict]) -> list[ViolationDict]:
+    """Sort violations by file path and line for stable display.
+
+    Args:
+        violations: Violation dicts to sort.
+
+    Returns:
+        Sorted list of violations.
+    """
+
     def key(v: ViolationDict) -> tuple[str, int | float]:
         f = str(v.get("file") or "")
         line = v.get("line")
@@ -44,6 +53,14 @@ def sort_violations(violations: list[ViolationDict]) -> list[ViolationDict]:
 
 
 def deduplicate_violations(violations: list[ViolationDict]) -> list[ViolationDict]:
+    """Drop duplicate violations that share rule id, file, and line.
+
+    Args:
+        violations: Violation dicts to deduplicate.
+
+    Returns:
+        Deduplicated list.
+    """
     seen: set[tuple[str, str, str | int | list[int] | tuple[int, ...] | bool | None]] = set()
     out: list[ViolationDict] = []
     for v in violations:
@@ -58,6 +75,14 @@ def deduplicate_violations(violations: list[ViolationDict]) -> list[ViolationDic
 
 
 def fmt_ms(ms: float) -> str:
+    """Format a duration in milliseconds for human-readable output.
+
+    Args:
+        ms: Duration in milliseconds.
+
+    Returns:
+        Human-readable duration string.
+    """
     if ms < 1:
         return "<1ms"
     if ms < 1000:
@@ -66,6 +91,14 @@ def fmt_ms(ms: float) -> str:
 
 
 def count_by_severity(violations: list[ViolationDict]) -> dict[str, int]:
+    """Count violations grouped into error, warning, info, and hint buckets.
+
+    Args:
+        violations: Violation dicts to count.
+
+    Returns:
+        Dict mapping severity bucket to count.
+    """
     counts = {"error": 0, "warning": 0, "info": 0, "hint": 0}
     for v in violations:
         level = str(v.get("level") or "").lower()
@@ -123,6 +156,14 @@ def render_scan_results(
     scan_time_ms: float | None = None,
     summary: object | None = None,
 ) -> None:
+    """Print scan summary, issue table, and per-file breakdown to stdout.
+
+    Args:
+        violations: Violations to render.
+        scan_id: Optional scan identifier for the header.
+        scan_time_ms: Optional total scan time in milliseconds.
+        summary: Optional remediation summary proto from the server.
+    """
     counts = count_by_severity(violations)
     has_errors = counts["error"] > 0
     passed = not has_errors
@@ -219,6 +260,11 @@ def render_scan_results(
 
 
 def print_diagnostics_v(diag: ScanDiagnostics) -> None:
+    """Print concise scan timing diagnostics (-v) to stderr.
+
+    Args:
+        diag: Scan timing diagnostics from the engine.
+    """
     w = sys.stderr.write
 
     engine_detail = ""
@@ -267,6 +313,11 @@ def print_diagnostics_v(diag: ScanDiagnostics) -> None:
 
 
 def print_diagnostics_vv(diag: ScanDiagnostics) -> None:
+    """Print detailed scan timing diagnostics (-vv) to stderr.
+
+    Args:
+        diag: Scan timing diagnostics from the engine.
+    """
     w = sys.stderr.write
 
     engine_detail = ""
@@ -299,6 +350,14 @@ def print_diagnostics_vv(diag: ScanDiagnostics) -> None:
 
 
 def diag_to_dict(diag: ScanDiagnostics) -> YAMLDict:
+    """Convert scan diagnostics to a JSON-serializable dict structure.
+
+    Args:
+        diag: Scan timing diagnostics from the engine.
+
+    Returns:
+        Dict of diagnostic data suitable for JSON output.
+    """
     validators = []
     for vd in diag.validators:
         validators.append(
