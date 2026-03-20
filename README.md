@@ -7,17 +7,17 @@ Ansible Policy & Modernization Engine — a multi-validator static analysis plat
 ## Architecture at a glance
 
 ```
-┌─────────┐      gRPC       ┌───────────┐      gRPC (parallel)      ┌────────────┐
+┌─────────┐      gRPC       ┌────────────┐      gRPC (parallel)      ┌────────────┐
 │   CLI   │ ──────────────► │  Primary   │ ──────────────────────►   │   Native   │ :50055
 │ (on-the │  ScanRequest    │ (orchestr) │   ValidateRequest         │  (Python)  │
 │  -fly)  │  chunked fs     │            │ ┌─────────────────────►   ├────────────┤
 └─────────┘                 │   Engine   │ │                         │    OPA     │ :50054
-     ▲                      │  ┌──────┐  │ │  ┌──────────────────►   │  (Rego)   │
+     ▲                      │  ┌──────┐  │ │  ┌──────────────────►   │  (Rego)    │
      │   ScanResponse       │  │parse │  │ │  │                      ├────────────┤
      │   violations         │  │annot.│  │ │  │  ┌───────────────►   │  Ansible   │ :50053
      └──────────────────────│  │hier. │  ├─┘  │  │                   │ (runtime)  │
                             │  └──────┘  ├────┘  │                   ├────────────┤
-                            └───────────┘ ├──────┘                   │  Gitleaks  │ :50056
+                            └────────────┘───────┘                   │  Gitleaks  │ :50056
                                  │                                   │ (secrets)  │
                             ┌────┴────┐                              └────────────┘
                             │  Cache  │ :50052
@@ -55,15 +55,11 @@ apme-scan /path/to/playbook-or-project
 # JSON output
 apme-scan --json .
 
-# Skip specific validators
-apme-scan --no-opa .
-apme-scan --no-native .
-
 # Diagnostics: summary + top 10 slowest rules
-apme-scan scan --primary-addr localhost:50051 -v .
+apme-scan scan -v .
 
 # Diagnostics: full per-rule breakdown
-apme-scan scan --primary-addr localhost:50051 -vv .
+apme-scan scan -vv .
 
 # Format YAML files (show diff)
 apme-scan format /path/to/project
@@ -80,8 +76,8 @@ apme-scan fix --apply /path/to/project
 # AI-assisted fixes (requires Abbenay daemon)
 apme-scan fix --ai --apply /path/to/project
 
-# AI with explicit model and CI mode (no interactive review)
-apme-scan fix --ai --model openai/gpt-4o --ci --apply /path/to/project
+# AI with auto-approve (no interactive review)
+apme-scan fix --ai --auto-approve --apply /path/to/project
 ```
 
 ### Container deployment (Podman)
@@ -90,12 +86,12 @@ apme-scan fix --ai --model openai/gpt-4o --ci --apply /path/to/project
 # Build all images
 ./containers/podman/build.sh
 
-# Start the pod (Primary + Native + OPA + Ansible + Cache Maintainer)
+# Start the pod (Primary + Native + OPA + Ansible + Gitleaks + Cache Maintainer)
 ./containers/podman/up.sh
 
 # Scan a project (CLI container, on-the-fly)
 cd /path/to/your/project
-/path/to/ansible-forward/containers/podman/run-cli.sh
+/path/to/apme/containers/podman/run-cli.sh
 
 # With options
 containers/podman/run-cli.sh --json .
@@ -104,7 +100,7 @@ containers/podman/run-cli.sh --json .
 ### Health check
 
 ```bash
-apme-scan health-check --primary-addr 127.0.0.1:50051
+apme-scan health-check
 ```
 
 ## AI escalation
@@ -132,7 +128,7 @@ abbenay daemon start
 export APME_ABBENAY_TOKEN="your-token"
 
 # Fix with AI
-apme-scan fix --ai --model openrouter/anthropic/claude-sonnet-4 --apply /path/to/project
+apme-scan fix --ai --apply /path/to/project
 ```
 
 ### Container daemon
@@ -152,8 +148,8 @@ podman run -d --name abbenay \
   -p 8787:8787 -p 50057:50051 \
   ghcr.io/redhat-developer/abbenay:latest
 
-# Point APME at the container via gRPC TCP
-apme-scan fix --ai --abbenay-addr localhost:50057 --apply .
+# Point APME at the Abbenay container via gRPC TCP
+APME_ABBENAY_ADDR=localhost:50057 apme-scan fix --ai --apply .
 ```
 
 ### CLI flags
@@ -161,11 +157,11 @@ apme-scan fix --ai --abbenay-addr localhost:50057 --apply .
 | Flag | Description |
 |------|-------------|
 | `--ai` | Enable AI escalation (opt-in) |
-| `--model MODEL` | AI model identifier (e.g. `openai/gpt-4o`) |
-| `--abbenay-addr ADDR` | Daemon address (default: auto-discover socket) |
-| `--abbenay-token TOKEN` | Consumer auth token for inline policy (or set `APME_ABBENAY_TOKEN` env var) |
-| `--max-ai-attempts N` | Max LLM calls per violation (default: 2) |
-| `--ci` | CI mode: apply AI proposals without interactive review |
+| `--auto-approve` | Approve all AI proposals without prompting (CI mode) |
+| `--max-passes N` | Max convergence passes (default: 5) |
+| `--apply` | Write changes in place |
+| `--check` | Exit 1 if changes would be made (CI mode) |
+| `--json` | Output structured data payloads as JSON |
 
 ### Remediation flow
 
