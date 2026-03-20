@@ -128,7 +128,7 @@ abbenay daemon start
 export APME_ABBENAY_TOKEN="your-token"
 
 # Fix with AI
-apme-scan fix --ai --model openrouter/anthropic/claude-sonnet-4 --apply /path/to/project
+apme-scan fix --ai --apply /path/to/project
 ```
 
 ### Container daemon
@@ -148,8 +148,8 @@ podman run -d --name abbenay \
   -p 8787:8787 -p 50057:50051 \
   ghcr.io/redhat-developer/abbenay:latest
 
-# Point APME at the container via gRPC TCP
-apme-scan fix --ai --abbenay-addr localhost:50057 --apply .
+# Point APME at the Abbenay container via gRPC TCP
+APME_ABBENAY_ADDR=localhost:50057 apme-scan fix --ai --apply .
 ```
 
 ### CLI flags

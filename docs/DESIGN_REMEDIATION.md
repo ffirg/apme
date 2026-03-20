@@ -487,7 +487,7 @@ Options:
   --ai                 Enable Tier 2 AI-assisted remediation (opt-in)
   --auto-approve       Approve all AI proposals without prompting (CI mode)
   --max-passes N       Max convergence passes (default: 5)
-  --exclude PATTERN    Glob patterns to skip
+  --exclude PATTERN    Glob patterns to skip (parsed but not yet wired through to the engine)
   --ansible-version V  ansible-core version for validation
   --collections SPEC   Collection specs to make available
   --json               Output structured data payloads as JSON

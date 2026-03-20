@@ -258,13 +258,14 @@ The `rule_id` prefix convention:
 - `native:` → native Python rule
 - No prefix → Ansible/Modernize rule (M001–M004, L057–L059)
 
-## Local (in-process) mode
+## Local daemon mode
 
-When running without the daemon, the CLI auto-starts a local daemon and runs everything in-process:
+When running without the Podman pod, the CLI auto-discovers or auto-starts a local daemon process via `ensure_daemon()`:
 
-1. Engine runs directly (no temp dir, no gRPC)
-2. `NativeValidator` and `OpaValidator` run in the same process
-3. OPA is invoked via Podman (`podman run ... opa eval`) or local binary
-4. Results are merged locally
+1. If `APME_PRIMARY_ADDRESS` is set, the CLI connects to that address directly
+2. If a daemon is already running (`~/.apme-data/daemon.json`), the CLI reuses it
+3. Otherwise, the CLI auto-starts a background daemon (`apme-scan daemon start`)
 
-This mode is useful for development and testing but does not support the Ansible validator (which requires pre-built venvs in the container).
+The local daemon runs Primary, Cache Maintainer, Native, and OPA validators as localhost gRPC servers in a single background process. The CLI always communicates via gRPC — it never runs the engine in-process.
+
+Ansible and Gitleaks validators are optional and not started by default (they require external binaries or pre-built venvs). Pass `include_optional=True` to `start_daemon()` to enable them.

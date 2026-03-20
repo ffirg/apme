@@ -183,10 +183,12 @@ python -m apme_engine.cli fix .
 python -m apme_engine.cli daemon stop
 ```
 
-Daemon mode starts a local Primary server with Native, OPA, and Ansible
-validators running in-process. Gitleaks is excluded (requires the container
-with the gitleaks binary). OPA runs via the local `opa` binary; if `opa`
-is not installed, the OPA validator is automatically skipped.
+Daemon mode starts a background process with Primary, Cache Maintainer,
+Native, and OPA validators as localhost gRPC servers. Ansible and Gitleaks
+are optional (`_OPTIONAL_SERVICES` in `launcher.py`) and not started by
+default — Ansible requires pre-built venvs and Gitleaks requires the
+gitleaks binary. OPA runs via the local `opa` binary; if `opa` is not
+installed, the OPA validator is automatically skipped.
 
 ## Troubleshooting
 
