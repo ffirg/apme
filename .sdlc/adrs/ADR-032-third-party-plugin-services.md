@@ -125,7 +125,7 @@ During fix passes, the Primary (or Remediation Engine) routes violations by rule
 
 Plugin transforms participate in the same convergence loop: scan -> fix -> rescan -> repeat until stable. The plugin receives one `TransformRequest` per violation, returns the fixed file (or `applied=false`), and the Primary writes the result back before rescanning.
 
-If a plugin's `Transform` returns an error or `applied=false` for a given violation, the violation is classified as `REMEDIATION_CLASS_MANUAL_REVIEW` (Tier 3), consistent with the built-in behavior when a transform fails.
+If a plugin's `Transform` returns an error or `applied=false` for a given violation, the violation is reclassified as `REMEDIATION_CLASS_AI_CANDIDATE` with `REMEDIATION_RESOLUTION_TRANSFORM_FAILED` (Tier 2), matching the built-in remediation engine's handling of transform failures.
 
 ### 5. Data contract
 
@@ -139,7 +139,7 @@ Plugins receive the following data in `ValidateRequest`:
 | `collection_specs` | `repeated string` | Collection specifiers from requirements.yml |
 | `request_id` | `string` | Correlation ID |
 
-Plugins do **not** receive `scandata` (field 4 on `ValidateRequest`). This field contains Python-specific jsonpickle serialization of internal engine state and is not part of the public contract. Keeping it out preserves language-agnosticism: plugins can be written in Python, Go, Rust, or any language with gRPC support.
+The underlying `ValidateRequest` protobuf message also defines `scandata` as field 4. For calls from the Primary to plugins, the Primary **MUST** send `scandata` unset/empty, and plugin implementations **MUST** ignore any value present in this field. `scandata` contains Python-specific jsonpickle serialization of internal engine state and is **not** part of the stable, language-agnostic public contract, even though the field exists on the wire.
 
 The `hierarchy_payload` JSON schema should be documented as a versioned public contract (future work — not blocking this ADR).
 
