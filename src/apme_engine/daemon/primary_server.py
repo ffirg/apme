@@ -145,15 +145,26 @@ def _normalize_scandata_contexts(scandata: object) -> None:
 def _write_chunked_fs(files: list[File]) -> Path:
     """Write request.files into a temp directory; return path to that directory.
 
+    File paths are sanitised: absolute paths and ``..`` segments are rejected
+    to prevent writes outside the temp directory.
+
     Args:
         files: List of File protos with path and content.
 
     Returns:
         Path to the created temp directory.
+
+    Raises:
+        ValueError: If a file path is absolute or escapes the temp root.
     """
     tmp = Path(tempfile.mkdtemp(prefix="apme_primary_"))
     for f in files:
-        path = tmp / f.path
+        rel = Path(f.path)
+        if rel.is_absolute() or ".." in rel.parts:
+            raise ValueError(f"Unsafe file path rejected: {f.path!r}")
+        path = (tmp / rel).resolve()
+        if not path.is_relative_to(tmp):
+            raise ValueError(f"Path escapes temp root: {f.path!r}")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(f.content)
     return tmp
