@@ -53,13 +53,18 @@ def _wait_for_port(port: int, timeout: float = 15.0) -> bool:
 
 
 @pytest.fixture(scope="module")  # type: ignore[untyped-decorator]
-def galaxy_proxy_url() -> Generator[str, None, None]:
+def galaxy_proxy_url(tmp_path_factory: pytest.TempPathFactory) -> Generator[str, None, None]:
     """Start the galaxy proxy and yield its URL.
+
+    Args:
+        tmp_path_factory: Pytest temp path factory for stderr log.
 
     Yields:
         str: Base URL of the running proxy.
     """
     port = _free_port()
+    stderr_log = tmp_path_factory.mktemp("proxy") / "stderr.log"
+    stderr_fh = open(stderr_log, "w")  # noqa: SIM115
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -70,13 +75,15 @@ def galaxy_proxy_url() -> Generator[str, None, None]:
             "--port",
             str(port),
         ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=stderr_fh,
     )
     try:
         if not _wait_for_port(port):
-            _, stderr_bytes = proc.communicate(timeout=5)
-            pytest.fail(f"Galaxy proxy did not start on port {port}: {stderr_bytes.decode()}")
+            proc.terminate()
+            proc.wait(timeout=5)
+            stderr_fh.close()
+            pytest.fail(f"Galaxy proxy did not start on port {port}: {stderr_log.read_text()[:2000]}")
         yield f"http://127.0.0.1:{port}"
     finally:
         proc.terminate()
@@ -85,6 +92,7 @@ def galaxy_proxy_url() -> Generator[str, None, None]:
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
+        stderr_fh.close()
 
 
 @pytest.fixture(scope="module")  # type: ignore[untyped-decorator]

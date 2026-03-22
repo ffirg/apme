@@ -130,16 +130,19 @@ def _start_infrastructure() -> None:
     data_dir = tempfile.mkdtemp(prefix="apme-integration-")
 
     proxy_port = _free_port()
+    proxy_stderr = Path(data_dir) / "proxy_stderr.log"
+    proxy_stderr_fh = open(proxy_stderr, "w")  # noqa: SIM115
     proxy_proc = subprocess.Popen(
         [sys.executable, "-m", "galaxy_proxy.cli", "--host", "127.0.0.1", "--port", str(proxy_port)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=proxy_stderr_fh,
     )
     if not _wait_for_port(proxy_port):
         proxy_proc.terminate()
-        _, stderr_bytes = proxy_proc.communicate(timeout=5)
+        proxy_proc.wait(timeout=5)
+        proxy_stderr_fh.close()
         pytest.exit(
-            f"Galaxy proxy did not start on port {proxy_port}: {stderr_bytes.decode()}",
+            f"Galaxy proxy did not start on port {proxy_port}: {proxy_stderr.read_text()[:2000]}",
             returncode=2,
         )
         return

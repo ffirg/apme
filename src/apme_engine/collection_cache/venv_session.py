@@ -250,7 +250,9 @@ def install_collections_incremental(
 
 
 _DEFAULT_TTL = 3600
-_SAFE_SESSION_RE = __import__("re").compile(r"^[A-Za-z0-9_\-]+$")
+_re = __import__("re")
+_SAFE_SESSION_RE = _re.compile(r"^[A-Za-z0-9_\-]+$")
+_SAFE_VERSION_RE = _re.compile(r"^\d+\.\d+(\.\d+)?$")
 
 
 def _sanitize_session_id(session_id: str) -> str:
@@ -271,16 +273,21 @@ def _sanitize_session_id(session_id: str) -> str:
 
 
 def _normalize_version(raw: str) -> str:
-    """Ensure a three-part pip version string (e.g. ``"2.17"`` → ``"2.17.0"``).
+    """Ensure a three-part pip version string (e.g. ``"2.17"`` -> ``"2.17.0"``).
 
     Args:
-        raw: Version string with 2 or 3 parts.
+        raw: Version string with 2 or 3 parts (e.g. ``"2.20"`` or ``"2.20.1"``).
 
     Returns:
         Normalised ``X.Y.Z`` version string.
+
+    Raises:
+        ValueError: If raw is not a valid version (must match ``X.Y`` or ``X.Y.Z``).
     """
-    parts = raw.split(".")
-    return ".".join(parts[:2]) + ".0" if len(parts) < 3 else raw
+    if not _SAFE_VERSION_RE.match(raw.strip()):
+        raise ValueError(f"Invalid ansible version {raw!r}: must match X.Y or X.Y.Z")
+    parts = raw.strip().split(".")
+    return ".".join(parts[:2]) + ".0" if len(parts) < 3 else raw.strip()
 
 
 @dataclass
