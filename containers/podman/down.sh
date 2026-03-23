@@ -14,7 +14,7 @@ podman pod rm  apme-pod 2>/dev/null || true
 echo "Pod stopped."
 
 if [[ "${1:-}" == "--wipe" ]]; then
-  CACHE_PATH="${APME_CACHE_HOST_PATH:-${XDG_CACHE_HOME:-$HOME/.cache}/apme}"
+  CACHE_PATH="${APME_CACHE_HOST_PATH:-${XDG_CACHE_HOME:-$HOME/.cache}/apme/gateway}"
   DB_FILE="$CACHE_PATH/gateway.db"
   if [[ -f "$DB_FILE" ]]; then
     rm -f "$DB_FILE" "$DB_FILE-shm" "$DB_FILE-wal"

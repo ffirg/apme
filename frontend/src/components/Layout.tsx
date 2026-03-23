@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../hooks/useTheme";
 
 interface LayoutProps {
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { path: "/new-scan", label: "New Scan", icon: "+" },
   { path: "/", label: "Dashboard", icon: "\u25A0" },
   { path: "/scans", label: "Scans", icon: "\u2630" },
+  { path: "/sessions", label: "Sessions", icon: "\u229A" },
   { path: "/violations", label: "Top Violations", icon: "\u26A0" },
   { path: "/fix-tracker", label: "Fix Tracker", icon: "\u2692" },
   { path: "/ai-metrics", label: "AI Metrics", icon: "\u2606" },
@@ -42,6 +43,7 @@ function MoonIcon() {
 
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, toggle } = useTheme();
 
   const isActive = (path: string) => {
@@ -52,7 +54,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="apme-page-wrapper">
       <nav className="apme-sidebar">
-        <div className="apme-sidebar-header">
+        <div className="apme-sidebar-header" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           <div className="apme-sidebar-logo">A</div>
           <span className="apme-sidebar-title">APME</span>
         </div>
