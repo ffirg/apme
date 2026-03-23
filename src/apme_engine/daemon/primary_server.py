@@ -330,7 +330,7 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
     """
 
     _venv_mgr: VenvSessionManager | None = None
-    _SCAN_DEDUP_WINDOW_S: float = 10.0
+    _SCAN_DEDUP_WINDOW_S: float = 2.0
 
     def __init__(self) -> None:
         """Initialise servicer with an empty scan dedup cache."""
