@@ -44,10 +44,10 @@ class PrimaryStub(object):
                 request_serializer=apme_dot_v1_dot_primary__pb2.ScanRequest.SerializeToString,
                 response_deserializer=apme_dot_v1_dot_primary__pb2.ScanResponse.FromString,
                 _registered_method=True)
-        self.ScanStream = channel.stream_unary(
+        self.ScanStream = channel.stream_stream(
                 '/apme.v1.Primary/ScanStream',
                 request_serializer=apme_dot_v1_dot_primary__pb2.ScanChunk.SerializeToString,
-                response_deserializer=apme_dot_v1_dot_primary__pb2.ScanResponse.FromString,
+                response_deserializer=apme_dot_v1_dot_primary__pb2.ScanEvent.FromString,
                 _registered_method=True)
         self.Format = channel.unary_unary(
                 '/apme.v1.Primary/Format',
@@ -125,10 +125,10 @@ def add_PrimaryServicer_to_server(servicer, server):
                     request_deserializer=apme_dot_v1_dot_primary__pb2.ScanRequest.FromString,
                     response_serializer=apme_dot_v1_dot_primary__pb2.ScanResponse.SerializeToString,
             ),
-            'ScanStream': grpc.stream_unary_rpc_method_handler(
+            'ScanStream': grpc.stream_stream_rpc_method_handler(
                     servicer.ScanStream,
                     request_deserializer=apme_dot_v1_dot_primary__pb2.ScanChunk.FromString,
-                    response_serializer=apme_dot_v1_dot_primary__pb2.ScanResponse.SerializeToString,
+                    response_serializer=apme_dot_v1_dot_primary__pb2.ScanEvent.SerializeToString,
             ),
             'Format': grpc.unary_unary_rpc_method_handler(
                     servicer.Format,
@@ -203,12 +203,12 @@ class Primary(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_unary(
+        return grpc.experimental.stream_stream(
             request_iterator,
             target,
             '/apme.v1.Primary/ScanStream',
             apme_dot_v1_dot_primary__pb2.ScanChunk.SerializeToString,
-            apme_dot_v1_dot_primary__pb2.ScanResponse.FromString,
+            apme_dot_v1_dot_primary__pb2.ScanEvent.FromString,
             options,
             channel_credentials,
             insecure,

@@ -11,7 +11,7 @@ import "google/protobuf/struct.proto";
 // to know the internal service topology.
 service Primary {
   rpc Scan(ScanRequest) returns (ScanResponse);
-  rpc ScanStream(stream ScanChunk) returns (ScanResponse);
+  rpc ScanStream(stream ScanChunk) returns (stream ScanEvent);
   rpc Format(FormatRequest) returns (FormatResponse);
   rpc FormatStream(stream ScanChunk) returns (FormatResponse);
   rpc Health(HealthRequest) returns (HealthResponse);
@@ -72,6 +72,16 @@ message ScanResponse {
   ScanSummary summary = 5;
   string session_id = 6;             // echoed back for client reuse
   repeated ProgressUpdate logs = 7;  // collected pipeline logs (ADR-033)
+}
+
+// Server -> Client events streamed during ScanStream. Progress updates are
+// delivered in real time as milestones are reached; the final event carries
+// the full ScanResponse.
+message ScanEvent {
+  oneof event {
+    ProgressUpdate progress = 1;
+    ScanResponse result = 2;
+  }
 }
 
 message ScanDiagnostics {
