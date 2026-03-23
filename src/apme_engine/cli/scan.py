@@ -18,7 +18,6 @@ from apme_engine.cli.output import (
     diag_to_dict,
     print_diagnostics_v,
     print_diagnostics_vv,
-    render_logs,
     render_scan_results,
     sort_violations,
 )
@@ -74,21 +73,35 @@ def run_scan(args: argparse.Namespace) -> None:
         sys.stderr.write(f"{e}\n")
         sys.exit(1)
 
+    min_level = {0: 3, 1: 2}.get(verbosity, 1)
+
     channel, _ = resolve_primary(args)
     stub = primary_pb2_grpc.PrimaryStub(channel)  # type: ignore[no-untyped-call]
     try:
         scan_timeout = getattr(args, "timeout", None) or 120
-        resp = stub.ScanStream(chunks, timeout=scan_timeout)
+        responses = stub.ScanStream(chunks, timeout=scan_timeout)
+        resp = None
+        for event in responses:
+            oneof = event.WhichOneof("event")
+            if oneof == "progress":
+                p = event.progress
+                if p.level >= min_level:
+                    phase = f"[{p.phase}] " if p.phase else ""
+                    sys.stderr.write(f"  {phase}{p.message}\n")
+            elif oneof == "result":
+                resp = event.result
     except grpc.RpcError as e:
         sys.stderr.write(f"Engine error: {e.details()}\n")
         sys.exit(1)
     finally:
         channel.close()
 
+    if resp is None:
+        sys.stderr.write("Error: no scan result received from engine\n")
+        sys.exit(1)
+
     violations: list[ViolationDict] = [violation_proto_to_dict(v) for v in resp.violations]
     violations = deduplicate_violations(sort_violations(violations))
-
-    render_logs(resp.logs, verbosity)
 
     has_diag = resp.HasField("diagnostics")
 

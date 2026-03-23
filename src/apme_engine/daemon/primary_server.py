@@ -46,6 +46,7 @@ from apme.v1.primary_pb2 import (
     ProposalsReady,
     ScanChunk,
     ScanDiagnostics,
+    ScanEvent,
     ScanOptions,
     ScanRequest,
     ScanResponse,
@@ -67,7 +68,7 @@ from apme_engine.daemon.session import ResourceExhaustedError, SessionState, Ses
 from apme_engine.daemon.violation_convert import violation_dict_to_proto, violation_proto_to_dict
 from apme_engine.engine.jsonpickle_handlers import register_engine_handlers
 from apme_engine.engine.models import AnsibleRunContext, ViolationDict
-from apme_engine.log_bridge import attach_collector, merge_logs
+from apme_engine.log_bridge import attach_collector, attach_stream_sink, merge_logs
 from apme_engine.runner import run_scan
 from apme_engine.venv_manager.session import VenvSessionManager
 
@@ -679,26 +680,136 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         self,
         request_stream: AsyncIterator[ScanChunk],
         context: grpc.aio.ServicerContext,  # type: ignore[type-arg]
-    ) -> ScanResponse:
-        """Handle streaming Scan RPC: accumulate chunked files then validate.
+    ) -> AsyncIterator[ScanEvent]:
+        """Handle streaming Scan RPC with real-time progress delivery.
+
+        Accumulates chunked files, then runs the scan pipeline while
+        streaming ``ProgressUpdate`` milestones back to the client as
+        they occur.  The final event carries the full ``ScanResponse``.
 
         Args:
             request_stream: Async iterator of ScanChunk messages.
             context: gRPC servicer context.
 
-        Returns:
-            ScanResponse with violations and diagnostics.
+        Yields:
+            ScanEvent: Progress updates followed by the result.
+
+        Raises:
+            Exception: Propagates unexpected errors after cleanup.
         """
         all_files, scan_id, project_root, opts, _ = await self._accumulate_chunks(request_stream)
         session_id = opts.session_id if opts else ""
-        req = ScanRequest(
-            scan_id=scan_id,
-            project_root=project_root,
-            files=all_files,
-            options=opts or ScanOptions(),
-            session_id=session_id,
-        )
-        return await self.Scan(req, context)
+        temp_dir: Path | None = None
+        pipeline_task: asyncio.Task[tuple] | None = None  # type: ignore[type-arg]
+
+        queue: asyncio.Queue[ProgressUpdate] = asyncio.Queue()
+        streamed_entries: list[ProgressUpdate] = []
+
+        with attach_stream_sink(queue):
+            try:
+                logger.info("Scan: start (%d files, req=%s)", len(all_files), scan_id)
+
+                if not all_files:
+                    yield ScanEvent(result=ScanResponse(scan_id=scan_id, violations=[], logs=[]))
+                    return
+
+                try:
+                    temp_dir = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        _write_chunked_fs,
+                        all_files,
+                    )
+                except ValueError as ve:
+                    await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(ve))
+                assert temp_dir is not None
+
+                pipeline_task = asyncio.create_task(
+                    self._scan_pipeline(
+                        temp_dir,
+                        all_files,
+                        scan_id,
+                        ansible_core_version=opts.ansible_core_version if opts else "",
+                        collection_specs=list(opts.collection_specs) if opts else [],
+                        session_id=session_id,
+                    )
+                )
+
+                while not pipeline_task.done():
+                    try:
+                        entry = await asyncio.wait_for(queue.get(), timeout=0.25)
+                        streamed_entries.append(entry)
+                        yield ScanEvent(progress=entry)
+                    except asyncio.TimeoutError:
+                        continue
+
+                while not queue.empty():
+                    entry = queue.get_nowait()
+                    streamed_entries.append(entry)
+                    yield ScanEvent(progress=entry)
+
+                violations, diag, resolved_sid, vlogs = pipeline_task.result()
+
+                for vlog_batch in vlogs:
+                    for vlog in vlog_batch:
+                        yield ScanEvent(progress=vlog)
+
+                from apme_engine.remediation.partition import add_classification_to_violations
+                from apme_engine.remediation.transforms import build_default_registry
+
+                registry = build_default_registry()
+                add_classification_to_violations(violations, registry)
+
+                from apme_engine.remediation.partition import count_by_remediation_class, count_by_resolution
+
+                rem_counts = count_by_remediation_class(violations)
+                res_counts = count_by_resolution(violations)
+                summary = ScanSummary(
+                    total=len(violations),
+                    auto_fixable=rem_counts.get("auto-fixable", 0),
+                    ai_candidate=rem_counts.get("ai-candidate", 0),
+                    manual_review=rem_counts.get("manual-review", 0),
+                    by_resolution=res_counts,
+                )
+
+                all_logs = merge_logs(streamed_entries, vlogs)
+                proto_violations = [violation_dict_to_proto(v) for v in violations]
+
+                asyncio.create_task(
+                    emit_scan_completed(
+                        ScanCompletedEvent(
+                            scan_id=scan_id,
+                            session_id=resolved_sid,
+                            project_path=project_root,
+                            source="cli",
+                            violations=proto_violations,
+                            diagnostics=diag,
+                            summary=summary,
+                            logs=all_logs,
+                        )
+                    )
+                )
+
+                yield ScanEvent(
+                    result=ScanResponse(
+                        violations=proto_violations,
+                        scan_id=scan_id,
+                        diagnostics=diag,
+                        summary=summary,
+                        session_id=resolved_sid,
+                        logs=all_logs,
+                    )
+                )
+            except Exception as e:
+                logger.exception("ScanStream failed (req=%s): %s", scan_id, e)
+                raise
+            finally:
+                if pipeline_task is not None and not pipeline_task.done():
+                    pipeline_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await pipeline_task
+                if temp_dir is not None and temp_dir.is_dir():
+                    with contextlib.suppress(OSError):
+                        shutil.rmtree(temp_dir)
 
     # ── Format RPCs ───────────────────────────────────────────────────
 

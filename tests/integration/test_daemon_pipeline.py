@@ -123,12 +123,12 @@ def scan_verbose(infrastructure: object) -> subprocess.CompletedProcess[str]:
 
 @pytest.mark.integration  # type: ignore[untyped-decorator]
 def test_milestone_logs_displayed(scan_verbose: subprocess.CompletedProcess[str]) -> None:
-    """With -v the CLI renders pipeline milestone logs on stderr (ADR-033).
+    """With -v the CLI renders pipeline milestone logs on stderr in real time.
 
-    The log bridge collects ProgressUpdate entries from Primary and validators
-    and returns them in ScanResponse.logs.  The CLI's render_logs() writes them
-    to stderr with ``[phase] message`` formatting.  This test verifies that
-    key milestones are visible to the user.
+    ScanStream is bidirectional: the server streams ``ScanEvent(progress=...)``
+    as milestones are reached, and the CLI renders them to stderr immediately.
+    The final ``ScanEvent(result=...)`` carries the full ``ScanResponse``.
+    This test verifies that key milestones are visible to the user.
 
     Args:
         scan_verbose: Completed scan process with -v output.
