@@ -698,9 +698,9 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
             Exception: Propagates unexpected errors after cleanup.
         """
         all_files, scan_id, project_root, opts, _ = await self._accumulate_chunks(request_stream)
-        scan_id = scan_id or str(uuid.uuid4())
         session_id = opts.session_id if opts else ""
         temp_dir: Path | None = None
+        pipeline_task: asyncio.Task[tuple] | None = None  # type: ignore[type-arg]
 
         queue: asyncio.Queue[ProgressUpdate] = asyncio.Queue()
         streamed_entries: list[ProgressUpdate] = []
@@ -802,6 +802,10 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
                 logger.exception("ScanStream failed (req=%s): %s", scan_id, e)
                 raise
             finally:
+                if pipeline_task is not None and not pipeline_task.done():
+                    pipeline_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await pipeline_task
                 if temp_dir is not None and temp_dir.is_dir():
                     with contextlib.suppress(OSError):
                         shutil.rmtree(temp_dir)
