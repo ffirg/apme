@@ -47,16 +47,21 @@ export function Layout({ children }: LayoutProps) {
             </li>
           ))}
         </ul>
-        <div className="apme-theme-toggle">
-          <button className="apme-theme-btn" onClick={toggle}>
-            <span style={{ width: 20, textAlign: "center" }}>
-              {theme === "dark" ? "\u2600" : "\u263D"}
-            </span>
-            {theme === "dark" ? "Light Mode" : "Dark Mode"}
+      </nav>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        <div className="apme-topbar">
+          <div style={{ flex: 1 }} />
+          <button
+            className="apme-theme-icon-btn"
+            onClick={toggle}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? "\u2600\uFE0F" : "\u263D"}
           </button>
         </div>
-      </nav>
-      <main className="apme-main">{children}</main>
+        <main className="apme-main">{children}</main>
+      </div>
     </div>
   );
 }

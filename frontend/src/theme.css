@@ -12,15 +12,15 @@
   --apme-text-heading: #fff;
   --apme-link: #73bcf7;
   --apme-green: #5ba352;
-  --apme-sev-critical: #ff1744;
-  --apme-sev-error: #7b1fa2;
-  --apme-sev-very-high: #f4511e;
-  --apme-sev-high: #ff9800;
-  --apme-sev-medium: #d4a843;
-  --apme-sev-warning: #f6db60;
-  --apme-sev-low: #42a5f5;
-  --apme-sev-very-low: #78909c;
-  --apme-sev-hint: #9e9e9e;
+  --apme-sev-critical: #D32F2F;
+  --apme-sev-error: #6A1B9A;
+  --apme-sev-very-high: #F4511E;
+  --apme-sev-high: #FF9800;
+  --apme-sev-medium: #FFB300;
+  --apme-sev-warning: #FDD835;
+  --apme-sev-low: #2196F3;
+  --apme-sev-very-low: #78909C;
+  --apme-sev-hint: #9E9E9E;
   --apme-accent: #06c;
   --apme-accent-hover: #004d99;
   --apme-input-bg: #151515;
@@ -41,14 +41,14 @@
   --apme-text-heading: #151515;
   --apme-link: #06c;
   --apme-green: #3e8635;
-  --apme-sev-critical: #d50000;
-  --apme-sev-error: #6a1b9a;
-  --apme-sev-very-high: #d84315;
-  --apme-sev-high: #e67e00;
-  --apme-sev-medium: #b8960a;
-  --apme-sev-warning: #c5a600;
-  --apme-sev-low: #1976d2;
-  --apme-sev-very-low: #607d8b;
+  --apme-sev-critical: #C62828;
+  --apme-sev-error: #6A1B9A;
+  --apme-sev-very-high: #D84315;
+  --apme-sev-high: #E67E00;
+  --apme-sev-medium: #F9A825;
+  --apme-sev-warning: #F9C400;
+  --apme-sev-low: #1976D2;
+  --apme-sev-very-low: #607D8B;
   --apme-sev-hint: #757575;
   --apme-accent: #06c;
   --apme-accent-hover: #004d99;
@@ -613,29 +613,34 @@ body,
   margin-top: 16px;
 }
 
-/* Theme toggle */
-.apme-theme-toggle {
-  margin-top: auto;
-  padding: 16px 20px;
-  border-top: 1px solid var(--apme-border);
-}
-
-.apme-theme-btn {
+/* Top bar */
+.apme-topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 0;
-  background: none;
-  border: none;
-  color: #b8bbbe;
-  font-size: 14px;
-  cursor: pointer;
-  text-align: left;
+  padding: 8px 32px;
+  border-bottom: 1px solid var(--apme-border);
+  background-color: var(--apme-bg-secondary);
+  min-height: 40px;
 }
 
-.apme-theme-btn:hover {
-  color: #fff;
+.apme-theme-icon-btn {
+  background: none;
+  border: 1px solid var(--apme-border);
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--apme-text-secondary);
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.apme-theme-icon-btn:hover {
+  background-color: var(--apme-bg-tertiary);
+  border-color: var(--apme-text-muted);
 }
 
 /* ── New Scan page ──────────────────────────────────────────────── */

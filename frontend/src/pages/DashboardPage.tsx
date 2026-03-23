@@ -5,6 +5,16 @@ import type { ScanSummary, SessionSummary } from "../types/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { timeAgo } from "../services/format";
 
+function deduplicateBySession(scans: ScanSummary[]): ScanSummary[] {
+  const seen = new Map<string, ScanSummary>();
+  for (const scan of scans) {
+    if (!seen.has(scan.session_id)) {
+      seen.set(scan.session_id, scan);
+    }
+  }
+  return Array.from(seen.values());
+}
+
 export function DashboardPage() {
   const navigate = useNavigate();
   const [scans, setScans] = useState<ScanSummary[]>([]);
@@ -12,7 +22,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([listScans(10, 0), listSessions(5, 0)])
+    Promise.all([listScans(50, 0), listSessions(50, 0)])
       .then(([scanData, sessionData]) => {
         setScans(scanData.items);
         setSessions(sessionData.items);
@@ -21,10 +31,13 @@ export function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const totalViolations = scans.reduce((s, sc) => s + sc.total_violations, 0);
-  const totalAutoFix = scans.reduce((s, sc) => s + sc.auto_fixable, 0);
-  const totalAi = scans.reduce((s, sc) => s + sc.ai_candidate, 0);
-  const totalManual = scans.reduce((s, sc) => s + sc.manual_review, 0);
+  const latestPerProject = deduplicateBySession(scans);
+  const totalViolations = latestPerProject.reduce((s, sc) => s + sc.total_violations, 0);
+  const totalAutoFix = latestPerProject.reduce((s, sc) => s + sc.auto_fixable, 0);
+  const totalAi = latestPerProject.reduce((s, sc) => s + sc.ai_candidate, 0);
+  const totalManual = latestPerProject.reduce((s, sc) => s + sc.manual_review, 0);
+
+  const recentScans = scans.slice(0, 10);
 
   return (
     <>
@@ -34,8 +47,8 @@ export function DashboardPage() {
 
       <div className="apme-cards-grid">
         <div className="apme-metric-card">
-          <div className="apme-metric-value">{scans.length}</div>
-          <div className="apme-metric-label">Recent Scans</div>
+          <div className="apme-metric-value">{sessions.length}</div>
+          <div className="apme-metric-label">Projects</div>
         </div>
         <div className="apme-metric-card">
           <div className="apme-metric-value warning">{totalViolations}</div>
@@ -54,8 +67,8 @@ export function DashboardPage() {
           <div className="apme-metric-label">Manual Review</div>
         </div>
         <div className="apme-metric-card">
-          <div className="apme-metric-value">{sessions.length}</div>
-          <div className="apme-metric-label">Projects</div>
+          <div className="apme-metric-value">{scans.length}</div>
+          <div className="apme-metric-label">Total Scans</div>
         </div>
       </div>
 
@@ -66,7 +79,7 @@ export function DashboardPage() {
 
       {loading ? (
         <div className="apme-empty">Loading...</div>
-      ) : scans.length === 0 ? (
+      ) : recentScans.length === 0 ? (
         <div className="apme-empty">No scans recorded yet.</div>
       ) : (
         <div className="apme-table-container">
@@ -84,7 +97,7 @@ export function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {scans.map((scan) => (
+              {recentScans.map((scan) => (
                 <tr key={scan.scan_id} onClick={() => navigate(`/scans/${scan.scan_id}`)} style={{ cursor: "pointer" }}>
                   <td className="apme-target-path">{scan.project_path}</td>
                   <td>
