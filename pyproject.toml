@@ -16,7 +16,8 @@ dependencies = [
     "filelock",
     "rapidfuzz",
     "joblib",
-    "grpcio>=1.60",
+    "grpcio>=1.78.0",
+    "grpcio-health-checking>=1.78.0",
     "protobuf>=6.31.1,<7",
     "httpx",
 ]
@@ -24,6 +25,17 @@ dependencies = [
 [project.optional-dependencies]
 ai = [
     "abbenay-client @ git+https://github.com/redhat-developer/abbenay.git@v2026.3.6-alpha#subdirectory=packages/python",
+]
+proxy = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+]
+gateway = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "sqlalchemy>=2.0",
+    "aiosqlite>=0.20",
+    "python-multipart>=0.0.6",
 ]
 dev = [
     "pytest",
@@ -36,14 +48,18 @@ dev = [
     "types-protobuf",
     "types-PyYAML",
     "grpc-stubs",
-    "grpcio-tools>=1.60",
+    "grpcio-tools>=1.78.0",
+    "pytest-playwright",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "src/apme_engine/validators/native/rules"]
 pythonpath = ["src"]
-addopts = "-v --tb=short -m 'not integration'"
-markers = ["integration: marks tests as integration (may use network or external deps)"]
+addopts = "-v --tb=short -m 'not integration and not ui'"
+markers = [
+    "integration: marks tests as integration (may use network or external deps)",
+    "ui: marks tests as browser/Playwright tests (require running UI + gateway stack)",
+]
 asyncio_mode = "auto"
 
 [tool.coverage.run]
@@ -64,11 +80,12 @@ fail_under = 50
 [project.scripts]
 apme-scan = "apme_engine.cli:main"
 apme-primary = "apme_engine.daemon.primary_main:main"
-apme-cache-maintainer = "apme_engine.daemon.cache_maintainer_main:main"
 apme-ansible-validator = "apme_engine.daemon.ansible_validator_main:main"
 apme-native-validator = "apme_engine.daemon.native_validator_main:main"
 apme-opa-validator = "apme_engine.daemon.opa_validator_main:main"
 apme-gitleaks-validator = "apme_engine.daemon.gitleaks_validator_main:main"
+galaxy-proxy = "galaxy_proxy.cli:main"
+apme-gateway = "apme_gateway.main:main"
 
 [tool.ruff]
 target-version = "py310"
@@ -93,6 +110,21 @@ python_version = "3.10"
 mypy_path = "src"
 exclude = ["src/apme/v1/.*_pb2"]
 
+# Vendored galaxy-proxy: parsed Galaxy YAML/JSON is inherently unstructured.
+[[tool.mypy.overrides]]
+module = ["galaxy_proxy", "galaxy_proxy.*"]
+disallow_any_explicit = false
+
+# Gateway DB layer: SQLAlchemy mapped columns use generic types.
+[[tool.mypy.overrides]]
+module = ["apme_gateway", "apme_gateway.*"]
+disallow_any_explicit = false
+
+# httpx stubs type Response.content as bytes; ignore is for ambiguous/alternate stubs.
+[[tool.mypy.overrides]]
+module = "galaxy_proxy.galaxy_client"
+disable_error_code = ["unused-ignore"]
+
 [[tool.mypy.overrides]]
 module = [
     "pytest",
@@ -106,8 +138,22 @@ module = [
     "yaml",
     "grpc",
     "grpc.*",
+    "grpc_health",
+    "grpc_health.*",
     "abbenay_grpc",
     "abbenay_grpc.*",
+    "fastapi",
+    "fastapi.*",
+    "uvicorn",
+    "uvicorn.*",
+    "sqlalchemy",
+    "sqlalchemy.*",
+    "aiosqlite",
+    "aiosqlite.*",
+    "pydantic",
+    "pydantic.*",
+    "playwright",
+    "playwright.*",
 ]
 ignore_missing_imports = true
 
@@ -115,10 +161,10 @@ ignore_missing_imports = true
 module = [
     "apme.v1.ansible_pb2",
     "apme.v1.ansible_pb2_grpc",
-    "apme.v1.cache_pb2_grpc",
     "apme.v1.common_pb2_grpc",
     "apme.v1.primary_pb2_grpc",
     "apme.v1.validate_pb2_grpc",
+    "apme.v1.reporting_pb2_grpc",
 ]
 ignore_errors = true
 
@@ -142,3 +188,4 @@ where = ["src"]
 "apme_engine.engine.annotators" = ["ansible.builtin/*.py"]
 "apme_engine.validators.opa" = ["bundle/*.rego", "bundle/*.json", "bundle/*.md"]
 "apme_engine.data" = ["*.yml", "*.yaml"]
+"galaxy_proxy" = ["py.typed"]

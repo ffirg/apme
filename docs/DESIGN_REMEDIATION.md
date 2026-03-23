@@ -401,7 +401,6 @@ service Primary {
   rpc FormatStream(stream ScanChunk) returns (FormatResponse);
   rpc FixSession(stream SessionCommand) returns (stream SessionEvent);
   rpc Health(HealthRequest) returns (HealthResponse);
-  // Cache proxy RPCs (PullGalaxy, PullRequirements, CloneOrg)
 }
 
 message FixOptions {
@@ -467,7 +466,7 @@ AI escalation uses the `AIProvider` protocol (ADR-025) with `AbbenayProvider` as
 │  └──────────┘                                                            │
 │                                                                          │
 │  ┌──────────────────────────────────────────┐                            │
-│  │         Cache Maintainer :50052          │                            │
+│  │       Galaxy Proxy :8765 (PEP 503)       │                            │
 │  └──────────────────────────────────────────┘                            │
 └──────────────────────────────────────────────────────────────────────────┘
 ```

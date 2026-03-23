@@ -2,13 +2,14 @@
 
 from google.protobuf.struct_pb2 import Struct
 
-from apme.v1.common_pb2 import ValidatorDiagnostics, Violation
+from apme.v1.common_pb2 import ProgressUpdate, ValidatorDiagnostics, Violation
 
 class ScanOptions:
     include_scandata: bool
     ansible_core_version: str
     collection_specs: list[str]
-    def __init__(self, **kwargs: object) -> None: ...
+    session_id: str
+    def __init__(self, *, session_id: str = "", **kwargs: object) -> None: ...
 
 class FixOptions:
     max_passes: int
@@ -18,7 +19,8 @@ class FixOptions:
     enable_ai: bool
     enable_agentic: bool
     ai_model: str
-    def __init__(self, **kwargs: object) -> None: ...
+    session_id: str
+    def __init__(self, *, session_id: str = "", **kwargs: object) -> None: ...
 
 class ScanChunk:
     scan_id: str
@@ -35,13 +37,23 @@ class ScanRequest:
     project_root: str
     files: list[object]
     options: ScanOptions | None
-    def __init__(self, **kwargs: object) -> None: ...
+    session_id: str
+    def __init__(self, *, session_id: str = "", **kwargs: object) -> None: ...
     def HasField(self, field_name: str) -> bool: ...
 
 class ScanResponse:
     summary: object | None
+    session_id: str
+    logs: list[ProgressUpdate]
+    def __init__(self, *, session_id: str = "", **kwargs: object) -> None: ...
+    def HasField(self, field_name: str) -> bool: ...
+
+class ScanEvent:
+    progress: ProgressUpdate
+    result: ScanResponse
     def __init__(self, **kwargs: object) -> None: ...
     def HasField(self, field_name: str) -> bool: ...
+    def WhichOneof(self, oneof_group: str) -> str | None: ...
 
 class ScanDiagnostics:
     engine_parse_ms: float
@@ -60,6 +72,7 @@ class FormatRequest:
     def __init__(self, **kwargs: object) -> None: ...
 
 class FormatResponse:
+    logs: list[ProgressUpdate]
     def __init__(self, **kwargs: object) -> None: ...
 
 class FileDiff:
@@ -133,12 +146,8 @@ class SessionCreated:
     ttl_seconds: int
     def __init__(self, **kwargs: object) -> None: ...
 
-class ProgressUpdate:
-    message: str
-    phase: str
-    progress: float
-    level: int
-    def __init__(self, **kwargs: object) -> None: ...
+# ProgressUpdate is defined in common_pb2 (ADR-033) and re-exported here
+# for backward compatibility. Import from common_pb2 for new code.
 
 class Tier1Summary:
     applied_patches: list[FilePatch]
@@ -191,12 +200,8 @@ class DataPayload:
     data: Struct
     def __init__(self, **kwargs: object) -> None: ...
 
-# Enum constants
-LOG_LEVEL_UNSPECIFIED: int
-DEBUG: int
-INFO: int
-WARNING: int
-ERROR: int
+# LogLevel enum constants moved to common_pb2 (ADR-033).
+# Re-exported here for backward compatibility.
 
 SESSION_STATUS_UNSPECIFIED: int
 AWAITING_APPROVAL: int

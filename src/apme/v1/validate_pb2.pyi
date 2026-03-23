@@ -1,5 +1,7 @@
 """Stub for generated validate_pb2 (proto types)."""
 
+from apme.v1.common_pb2 import ProgressUpdate
+
 class ValidateRequest:
     request_id: str
     project_root: str
@@ -8,8 +10,17 @@ class ValidateRequest:
     ansible_core_version: str
     collection_specs: list[str]
     files: list[object]
-    def __init__(self, **kwargs: object) -> None: ...
+    session_id: str
+    venv_path: str
+    def __init__(
+        self,
+        *,
+        session_id: str = "",
+        venv_path: str = "",
+        **kwargs: object,
+    ) -> None: ...
     def HasField(self, field_name: str) -> bool: ...
 
 class ValidateResponse:
+    logs: list[ProgressUpdate]
     def __init__(self, **kwargs: object) -> None: ...

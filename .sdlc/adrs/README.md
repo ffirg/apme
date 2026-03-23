@@ -11,7 +11,7 @@ This directory contains the Architecture Decision Records (ADRs) for APME.
 | [ADR-003](ADR-003-vendor-ari-engine.md) | Vendor the ARI Engine | Accepted | 2026-02 |
 | [ADR-004](ADR-004-podman-pod-deployment.md) | Podman Pod as Deployment Unit | Accepted | 2026-02 |
 | [ADR-005](ADR-005-no-service-discovery.md) | No etcd/Service Discovery | Accepted | 2026-02 |
-| [ADR-006](ADR-006-ephemeral-venvs.md) | Ephemeral Per-Request venvs | Accepted | 2026-03 |
+| [ADR-006](ADR-006-ephemeral-venvs.md) | Ephemeral Per-Request venvs | Superseded by ADR-022/ADR-031 | 2026-03 |
 | [ADR-007](ADR-007-async-grpc-servers.md) | Fully Async gRPC Servers | Accepted | 2026-03 |
 | [ADR-008](ADR-008-rule-id-conventions.md) | Rule ID Conventions (L/M/R/P) | Accepted | 2026-02 |
 | [ADR-009](ADR-009-remediation-engine.md) | Separate Remediation Engine | Accepted | 2026-03 |
@@ -36,7 +36,10 @@ This directory contains the Architecture Decision Records (ADRs) for APME.
 | [ADR-028](ADR-028-session-based-fix-workflow.md) | Session-Based Fix Workflow with Bidirectional Streaming | Accepted | 2026-03 |
 | [ADR-029](ADR-029-web-gateway-architecture.md) | Web Gateway Architecture | Proposed | 2026-03 |
 | [ADR-030](ADR-030-frontend-deployment-model.md) | Frontend Deployment Model | Proposed | 2026-03 |
-| [ADR-031](ADR-031-unified-collection-cache.md) | Unified Collection Cache as Single Authoritative Source | Proposed | 2026-03 |
+| [ADR-031](ADR-031-unified-collection-cache.md) | Unified Collection Cache as Single Authoritative Source | Accepted | 2026-03 |
+| [ADR-032](ADR-032-fqcn-collection-auto-discovery.md) | FQCN-Based Collection Auto-Discovery | Accepted | 2026-03 |
+| [ADR-033](ADR-033-centralized-log-bridge.md) | Centralized Log Bridge | Accepted | 2026-03 |
+| [ADR-034](ADR-034-multi-pod-health-registration.md) | Multi-Pod Health Registration | Proposed | 2026-03 |
 
 ## Categories
 
@@ -49,13 +52,15 @@ This directory contains the Architecture Decision Records (ADRs) for APME.
 - ADR-024: Thin CLI with local daemon mode
 - ADR-028: Session-based fix workflow with bidirectional streaming
 - ADR-029: Web gateway architecture (proposed)
+- ADR-034: Multi-pod health registration (proposed)
 
 ### Engine & Rules
 - ADR-002: OPA/Rego hybrid rules
 - ADR-003: Vendored ARI engine
 - ADR-008: Rule ID conventions
 - ADR-026: Rule scope metadata (accepted)
-- ADR-031: Unified collection cache (proposed)
+- ADR-031: Unified collection cache (accepted)
+- ADR-032: FQCN-based collection auto-discovery
 
 ### Validators
 - ADR-006: Ansible validator venvs
@@ -99,7 +104,7 @@ Original planning ADRs that were superseded by implementation decisions:
 ## Creating New ADRs
 
 1. Copy the template from `../.sdlc/templates/adr.md`
-2. Use the next available number (currently ADR-032)
+2. Use the next available number (currently ADR-035)
 3. Include:
    - Status (Proposed → Accepted)
    - Date
@@ -145,4 +150,7 @@ Original planning ADRs that were superseded by implementation decisions:
 | 028 | 2026-03 | Session-based fix workflow with bidirectional streaming |
 | 029 | 2026-03 | Web gateway architecture (proposed) |
 | 030 | 2026-03 | Frontend deployment model (proposed) |
-| 031 | 2026-03 | Unified collection cache as single authoritative source (proposed) |
+| 031 | 2026-03 | Unified collection cache as single authoritative source (accepted) |
+| 032 | 2026-03 | FQCN-based collection auto-discovery |
+| 033 | 2026-03 | Centralized log bridge |
+| 034 | 2026-03 | Multi-pod health registration (proposed) |

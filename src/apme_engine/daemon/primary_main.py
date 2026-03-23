@@ -5,6 +5,7 @@ import os
 import sys
 import traceback
 
+from apme_engine.daemon.event_emitter import stop_sinks
 from apme_engine.daemon.primary_server import serve
 
 
@@ -17,7 +18,10 @@ async def _run(listen: str) -> None:
     server = await serve(listen)
     sys.stderr.write(f"Primary daemon listening on {listen}\n")
     sys.stderr.flush()
-    await server.wait_for_termination()
+    try:
+        await server.wait_for_termination()
+    finally:
+        await stop_sinks()
 
 
 def main() -> None:
@@ -25,6 +29,10 @@ def main() -> None:
 
     Uses APME_PRIMARY_LISTEN for bind address. Exits with code 1 on failure.
     """
+    from apme_engine.log_bridge import install_handler
+
+    install_handler()
+
     listen = os.environ.get("APME_PRIMARY_LISTEN", "0.0.0.0:50051")
     try:
         asyncio.run(_run(listen))

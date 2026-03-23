@@ -19,10 +19,13 @@ message ValidateRequest {
   string ansible_core_version = 5;
   repeated string collection_specs = 6;
   string request_id = 7;          // correlation ID propagated from Primary
+  string session_id = 8;          // session identifier for venv reuse
+  string venv_path = 9;           // resolved venv path (set by Primary; validators use read-only)
 }
 
 message ValidateResponse {
   repeated Violation violations = 1;
   string request_id = 2;          // echoed back for correlation
   ValidatorDiagnostics diagnostics = 3;
+  repeated ProgressUpdate logs = 4;  // collected validator logs (ADR-033)
 }

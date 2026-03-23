@@ -11,12 +11,16 @@ User runs:  apme-scan scan /path/to/project
 ┌───────────────────────────────────────────────────────┐
 │  CLI (apme_engine/cli/)                                │
 │                                                       │
-│  1. Walk project directory                            │
-│  2. Filter: TEXT_EXTENSIONS, skip SKIP_DIRS,          │
+│  1. Discover project root (walk up for .git,          │
+│     galaxy.yml, requirements.yml, ansible.cfg,        │
+│     pyproject.toml) → derive session_id (SHA-256)     │
+│  2. Walk project directory                            │
+│  3. Filter: TEXT_EXTENSIONS, skip SKIP_DIRS,          │
 │     skip SKIP_FILENAMES (.travis.yml), apply          │
 │     .apmeignore patterns, exclude >2 MiB/binary       │
-│  3. Build ScanRequest:                                │
+│  4. Build ScanRequest:                                │
 │     - scan_id (uuid)                                  │
+│     - session_id (from project root or --session)     │
 │     - project_root (basename)                         │
 │     - files[] = File(path=relative, content=bytes)    │
 │     - options (ansible_core_version, collection_specs)│
@@ -55,7 +59,9 @@ User runs:  apme-scan scan /path/to/project
 │     │     { scan_id, hierarchy: [{root_key, root_type,   │       │
 │     │       root_path, nodes: [{type, key, file, line,   │       │
 │     │       module, options, module_options,              │       │
-│     │       annotations}]}], metadata }                  │       │
+│     │       annotations}]}],                             │       │
+│     │       collection_set: ["ns.coll", ...],            │       │
+│     │       metadata }                                   │       │
 │     │                                                    │       │
 │     │  Returns: ScanContext                              │       │
 │     │    .hierarchy_payload = dict (JSON-serializable)   │       │
@@ -85,7 +91,7 @@ User runs:  apme-scan scan /path/to/project
 │     │  │                                                  │      │
 │     │  ├─► Ansible :50053                                 │      │
 │     │  │   - Write files to temp dir                      │      │
-│     │  │   - Create ephemeral venv (UV-cached)            │      │
+│     │  │   - Use session venv from /sessions (read-only)  │      │
 │     │  │   - Run AnsibleValidator (syntax, argspec,       │      │
 │     │  │     FQCN, deprecation, redirect, removed)        │      │
 │     │  │   → violations[] + ValidatorDiagnostics          │      │
@@ -201,6 +207,7 @@ Serializes the tree into a flat JSON structure consumable by OPA and other paylo
       ]
     }
   ],
+  "collection_set": ["ansible.posix", "community.general"],
   "metadata": { "type": "project", "name": "myproject" }
 }
 ```
@@ -264,14 +271,40 @@ The `rule_id` prefix convention:
 - `native:` → native Python rule
 - No prefix → Ansible/Modernize rule (M001–M004, L057–L059)
 
+## Event reporting (Primary → Gateway → UI)
+
+After every scan or fix, the Primary pushes a `ScanCompletedEvent` or `FixCompletedEvent` to the Gateway's gRPC Reporting service (if `APME_REPORTING_ENDPOINT` is configured). The Gateway persists the event to SQLite and the UI reads it via the REST API.
+
+```
+Primary (scan completes)
+    │
+    │  await emit_scan_completed(ScanCompletedEvent)
+    │    ↓
+    │  GrpcReportingSink.on_scan_completed()
+    │    ↓
+    │  gRPC → Gateway :50060 ReportScanCompleted
+    │
+    ▼
+Gateway (grpc_reporting/servicer.py)
+    │  Upsert session row
+    │  Insert scan + violations + logs → SQLite
+    │
+    ▼
+UI (React SPA on :8081)
+    │  GET /api/v1/scans (nginx proxies to Gateway :8080)
+    │  Renders scan history, violations, session trends
+```
+
+Event emission uses ``await`` so delivery completes before the scan response is returned.  When the Reporting endpoint is known-down, a fast-fail timeout (1 s) prevents blocking the scan path.
+
 ## Local daemon mode
 
-When running without the Podman pod, the CLI auto-discovers or auto-starts a local daemon process via `ensure_daemon()`:
+When running without the Podman pod, the CLI connects to a local daemon via `ensure_daemon()`:
 
 1. If `APME_PRIMARY_ADDRESS` is set, the CLI connects to that address directly
 2. If a daemon is already running (`~/.apme-data/daemon.json`), the CLI reuses it
 3. Otherwise, the CLI auto-starts a background daemon (`apme-scan daemon start`)
 
-The local daemon runs Primary, Cache Maintainer, Native, and OPA validators as localhost gRPC servers in a single background process. The CLI always communicates via gRPC — it never runs the engine in-process.
+The local daemon runs Primary, Native, OPA, and Ansible validators plus the Galaxy Proxy as localhost gRPC servers in a single background process. The CLI always communicates via gRPC — it never runs the engine in-process.
 
 Ansible and Gitleaks validators are optional and not started by default (they require external binaries or pre-built venvs). Pass `include_optional=True` to `start_daemon()` to enable them.

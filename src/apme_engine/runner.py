@@ -1,5 +1,6 @@
 """Run the integrated scan engine and return a ScanContext."""
 
+import logging
 import os
 import tempfile
 import time
@@ -7,6 +8,8 @@ from pathlib import Path
 
 from apme_engine.engine.scanner import ARIScanner
 from apme_engine.validators.base import EngineDiagnostics, ScanContext
+
+logger = logging.getLogger("apme.engine")
 
 
 def run_scan_playbook_yaml(
@@ -27,7 +30,6 @@ def run_scan_playbook_yaml(
         ScanContext with hierarchy_payload and optionally scandata.
 
     """
-    project_root or os.path.expanduser("~/.apme-data")
     with tempfile.TemporaryDirectory(prefix="apme_rule_doc_") as tmpdir:
         playbook_path = os.path.join(tmpdir, "playbook.yml")
         with open(playbook_path, "w") as f:
@@ -40,13 +42,20 @@ def run_scan(
     target_path: str,
     project_root: str,
     include_scandata: bool = True,
+    dependency_dir: str = "",
 ) -> ScanContext:
     """Run the engine on target_path and return a ScanContext for validators.
+
+    ARI never downloads collections. When a session venv is available,
+    pass its site-packages as ``dependency_dir`` so ARI can resolve
+    external collection definitions.
 
     Args:
         target_path: Path to playbook file, taskfile, or project directory.
         project_root: Root directory for the scan (data dir).
         include_scandata: If True, attach the SingleScan to context for ARI native validator.
+        dependency_dir: Pre-installed dependency directory (e.g. session venv
+            site-packages).  ARI reads from this path but never writes to it.
 
     Returns:
         ScanContext with hierarchy_payload and optionally scandata.
@@ -73,18 +82,20 @@ def run_scan(
         base_dir = str(path)
         scan_type = "project"
 
+    logger.info("Engine: ARI evaluate start (%s, type=%s)", Path(name).name, scan_type)
     t0 = time.monotonic()
     scanner.evaluate(
         type=scan_type,
         name=name,
         path=name,
         base_dir=base_dir,
-        install_dependencies=True,
+        dependency_dir=dependency_dir,
         skip_dependency=False,
         load_all_taskfiles=True,
         include_test_contents=True,
     )
     engine_total_ms = (time.monotonic() - t0) * 1000
+    logger.info("Engine: ARI evaluate done (%.0fms)", engine_total_ms)
 
     scandata = scanner._current
     diag = _extract_engine_diagnostics(scandata, engine_total_ms)

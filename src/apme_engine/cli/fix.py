@@ -24,6 +24,7 @@ from apme.v1.primary_pb2 import (
     ScanChunk,
     SessionCommand,
 )
+from apme_engine.cli._project_root import derive_session_id, discover_project_root
 from apme_engine.cli.discovery import resolve_primary
 from apme_engine.daemon.chunked_fs import yield_scan_chunks
 
@@ -39,12 +40,20 @@ def run_fix(args: argparse.Namespace) -> None:
         sys.stderr.write(f"Target not found: {args.target}\n")
         sys.exit(1)
 
+    explicit_session = getattr(args, "session", None)
+    if explicit_session:
+        session_id = explicit_session
+    else:
+        project_root = discover_project_root(target)
+        session_id = derive_session_id(project_root)
+
     try:
         base_chunks = yield_scan_chunks(
             str(target),
             project_root_name="project",
             ansible_core_version=getattr(args, "ansible_version", None),
             collection_specs=getattr(args, "collections", None),
+            session_id=session_id,
         )
     except FileNotFoundError as e:
         sys.stderr.write(f"{e}\n")
@@ -55,6 +64,7 @@ def run_fix(args: argparse.Namespace) -> None:
         ansible_core_version=getattr(args, "ansible_version", None) or "",
         collection_specs=getattr(args, "collections", None) or [],
         enable_ai=getattr(args, "ai", False),
+        session_id=session_id,
     )
 
     cmd_queue: queue.Queue[SessionCommand | None] = queue.Queue()
@@ -108,9 +118,12 @@ def run_fix(args: argparse.Namespace) -> None:
 
             elif oneof == "progress":
                 p = event.progress
-                if p.level <= 1 and getattr(args, "verbose", 0) < 1:
+                verbosity = getattr(args, "verbose", 0) or 0
+                min_level = {0: 2, 1: 2}.get(verbosity, 1)
+                if p.level < min_level:
                     continue
-                sys.stderr.write(f"  {p.message}\n")
+                phase = f"[{p.phase}] " if p.phase else ""
+                sys.stderr.write(f"  {phase}{p.message}\n")
 
             elif oneof == "tier1_complete":
                 summary = event.tier1_complete

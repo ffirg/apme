@@ -66,7 +66,7 @@ message File {
   bytes content = 2;
 }
 
-// Health check (used by Primary, Ansible, CacheMaintainer).
+// Health check (used by Primary and all validators).
 message HealthRequest {}
 
 message HealthResponse {
@@ -105,4 +105,24 @@ message ValidatorDiagnostics {
   int32  violations_found = 5;
   repeated RuleTiming rule_timings = 6;
   map<string, string> metadata = 7;
+}
+
+// Log level for structured log transport (ADR-033).
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  DEBUG = 1;
+  INFO = 2;
+  WARNING = 3;
+  ERROR = 4;
+}
+
+// Structured log entry transported via gRPC (ADR-033).
+// Used by validators (in ValidateResponse.logs), Primary (in
+// ScanResponse.logs / FormatResponse.logs), and FixSession
+// (as SessionEvent.progress).
+message ProgressUpdate {
+  string message = 1;
+  string phase = 2;       // subsystem: "primary", "native", "opa", "engine", "venv", etc.
+  float progress = 3;     // 0.0-1.0, optional progress fraction
+  LogLevel level = 4;
 }

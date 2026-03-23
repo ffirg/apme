@@ -11,6 +11,7 @@ import asyncio
 import json
 import os
 import signal
+import socket
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -23,13 +24,12 @@ _STATE_FILE = _DATA_DIR / "daemon.json"
 
 _DEFAULT_PORTS = {
     "primary": 50051,
-    "cache": 50052,
     "native": 50055,
     "opa": 50054,
+    "ansible": 50053,
 }
 
 _OPTIONAL_SERVICES = {
-    "ansible": 50053,
     "gitleaks": 50056,
 }
 
@@ -122,12 +122,58 @@ def _health_check(address: str, timeout: float = 3.0) -> bool:
         return False
 
 
+def _check_port_available(host: str, port: int) -> bool:
+    """Return True if *port* on *host* is free (bind succeeds).
+
+    Uses ``bind()`` instead of ``connect()`` so the check works for
+    non-loopback addresses like ``0.0.0.0`` and avoids socket leaks.
+
+    Args:
+        host: Host to probe.
+        port: TCP port number.
+
+    Returns:
+        True when the port is available (bind succeeds).
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind((host, port))
+        except OSError:
+            return False
+        else:
+            return True
+
+
+def _assert_ports_free(host: str, ports: dict[str, int]) -> None:
+    """Raise RuntimeError if any port in *ports* is already bound.
+
+    Args:
+        host: Host to probe.
+        ports: Map of service name to port number.
+
+    Raises:
+        RuntimeError: When a port is already in use.
+    """
+    for name, port in ports.items():
+        if not _check_port_available(host, port):
+            msg = (
+                f"Port {port} ({name}) is already in use — is a Podman pod or "
+                f"another daemon running? Set APME_PRIMARY_ADDRESS to connect "
+                f"to an existing service instead of starting a new daemon."
+            )
+            raise RuntimeError(msg)
+
+
 async def _run_daemon(services: dict[str, str]) -> None:
     """Run all daemon services in a single event loop (blocks forever).
 
     Args:
         services: Map of service name -> listen address.
     """
+    from apme_engine.log_bridge import install_handler
+
+    install_handler()
+
     from apme_engine.daemon.primary_server import serve as primary_serve
 
     servers = []
@@ -142,9 +188,6 @@ async def _run_daemon(services: dict[str, str]) -> None:
     for name, env_var in env_map.items():
         if name in services:
             os.environ[env_var] = services[name]
-
-    if "cache" in services:
-        os.environ["APME_CACHE_GRPC_ADDRESS"] = services["cache"]
 
     # Start async validators
     if "native" in services:
@@ -171,14 +214,6 @@ async def _run_daemon(services: dict[str, str]) -> None:
         servers.append(await gitleaks_serve(services["gitleaks"]))
         sys.stderr.write(f"  Gitleaks validator on {services['gitleaks']}\n")
 
-    # Start sync cache in a thread
-    if "cache" in services:
-        from apme_engine.daemon.cache_maintainer_server import serve as cache_serve
-
-        cache_server = cache_serve(services["cache"])
-        cache_server.start()
-        sys.stderr.write(f"  Cache maintainer on {services['cache']}\n")
-
     # Start Primary last (depends on validators being up)
     primary = await primary_serve(services["primary"])
     servers.append(primary)
@@ -194,10 +229,10 @@ def start_daemon(
     include_optional: bool = False,
     host: str = "127.0.0.1",
 ) -> DaemonState:
-    """Fork a background daemon process running Primary + core validators.
+    """Fork a background daemon process running Primary + all validators.
 
     Args:
-        include_optional: Also start Ansible and Gitleaks validators.
+        include_optional: Also start Gitleaks validator (requires gitleaks binary).
         host: Bind address (default 127.0.0.1 for localhost-only).
 
     Returns:
@@ -207,11 +242,14 @@ def start_daemon(
         RuntimeError: If daemon fails to become healthy.
     """
     services: dict[str, str] = {}
-    for name, port in _DEFAULT_PORTS.items():
-        services[name] = f"{host}:{port}"
+    all_ports = dict(_DEFAULT_PORTS)
     if include_optional:
-        for name, port in _OPTIONAL_SERVICES.items():
-            services[name] = f"{host}:{port}"
+        all_ports.update(_OPTIONAL_SERVICES)
+
+    _assert_ports_free(host, all_ports)
+
+    for name, port in all_ports.items():
+        services[name] = f"{host}:{port}"
 
     pid = os.fork()
     if pid == 0:

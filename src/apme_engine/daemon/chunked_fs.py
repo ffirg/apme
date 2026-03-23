@@ -2,6 +2,7 @@
 
 import fnmatch
 import os
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from apme.v1.primary_pb2 import ScanChunk, ScanOptions, ScanRequest
 CHUNK_MAX_BYTES = 1024 * 1024  # 1 MiB
 
 # Skip these dirs when walking (same kind of ignores as many linters)
-SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", ".tox", "htmlcov", ".github"}
+SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", ".tox", "htmlcov", ".github", "archives"}
 
 SKIP_FILENAMES = {".travis.yml", ".travis.yaml"}
 
@@ -141,6 +142,7 @@ def build_scan_request(
     project_root_name: str = "project",
     ansible_core_version: str | None = None,
     collection_specs: list[str] | None = None,
+    session_id: str = "",
 ) -> ScanRequest:
     """Walk target_path (file or directory) and build a ScanRequest with chunked files.
 
@@ -152,6 +154,7 @@ def build_scan_request(
         project_root_name: Name for project root in the request.
         ansible_core_version: Optional Ansible core version.
         collection_specs: Optional list of collection specifiers.
+        session_id: Session ID for venv reuse across scans.
 
     Returns:
         ScanRequest with files and options populated.
@@ -200,12 +203,17 @@ def build_scan_request(
         options.ansible_core_version = ansible_core_version
     if collection_specs:
         options.collection_specs.extend(collection_specs)
+    if session_id:
+        options.session_id = session_id
+
+    resolved_scan_id = scan_id or str(uuid.uuid4())
 
     return ScanRequest(
-        scan_id=scan_id or "",
+        scan_id=resolved_scan_id,
         project_root=project_root_name,
         files=files,
         options=options,
+        session_id=session_id,
     )
 
 
@@ -216,6 +224,7 @@ def yield_scan_chunks(
     ansible_core_version: str | None = None,
     collection_specs: list[str] | None = None,
     chunk_max_bytes: int = CHUNK_MAX_BYTES,
+    session_id: str = "",
 ) -> Iterator[ScanChunk]:
     """Yield ScanChunk messages for ScanStream so the total request stays under gRPC message limits.
 
@@ -229,6 +238,7 @@ def yield_scan_chunks(
         ansible_core_version: Optional Ansible core version.
         collection_specs: Optional list of collection specifiers.
         chunk_max_bytes: Max serialized size per chunk (default 1 MiB).
+        session_id: Session ID for venv reuse across scans.
 
     Yields:
         ScanChunk: ScanChunk messages for streaming.
@@ -239,6 +249,7 @@ def yield_scan_chunks(
         project_root_name=project_root_name,
         ansible_core_version=ansible_core_version,
         collection_specs=collection_specs,
+        session_id=session_id,
     )
     files: list[File] = list(req.files)  # type: ignore[arg-type]
     if not files:
