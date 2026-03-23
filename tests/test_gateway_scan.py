@@ -419,3 +419,17 @@ async def test_path_traversal_rejected() -> None:
 
     assert _sanitize_path("roles/tasks/main.yml") == "roles/tasks/main.yml"
     assert _sanitize_path("/absolute/path.yml") == "absolute/path.yml"
+
+
+@pytest.mark.asyncio  # type: ignore[untyped-decorator]
+async def test_dot_only_path_rejected() -> None:
+    """Paths resolving to '.' (the temp dir itself) are rejected."""
+    from apme_gateway.session_client import _sanitize_path
+
+    with pytest.raises(ValueError, match="Invalid file path"):
+        _sanitize_path(".")
+
+    with pytest.raises(ValueError, match="Invalid file path"):
+        _sanitize_path("./")
+
+    assert _sanitize_path("a/./b.yml") == "a/b.yml"

@@ -77,13 +77,16 @@ def _sanitize_path(relative_path: str) -> str:
         Sanitized relative path string.
 
     Raises:
-        ValueError: If the path contains ``..`` components.
+        ValueError: If the path contains ``..`` components or resolves to
+            an empty / directory-only path (e.g. ``"."``).
     """
     cleaned = PurePosixPath(relative_path.replace("\\", "/"))
-    parts = [p for p in cleaned.parts if p not in ("/", "\\")]
+    parts = [p for p in cleaned.parts if p not in ("/", "\\", ".")]
     if ".." in parts:
         raise ValueError(f"Path traversal detected: {relative_path!r}")
-    return str(PurePosixPath(*parts)) if parts else "unnamed"
+    if not parts:
+        raise ValueError(f"Invalid file path: {relative_path!r}")
+    return str(PurePosixPath(*parts))
 
 
 def _status_name(status: int) -> str:
@@ -119,7 +122,11 @@ async def _collect_uploads(ws: WebSocket, temp_dir: Path) -> dict[str, Any]:
         msg_type = msg.get("type")
 
         if msg_type == "start":
-            options = msg.get("options", {})
+            raw_options = msg.get("options") or {}
+            if not isinstance(raw_options, dict):
+                await ws.send_json({"type": "error", "message": "Invalid 'options' value: expected an object"})
+                raw_options = {}
+            options = raw_options
 
         elif msg_type == "file":
             safe = _sanitize_path(msg["path"])
@@ -164,6 +171,9 @@ async def _ws_command_reader(
 
             if msg_type == "approve":
                 ids = msg.get("approved_ids", [])
+                if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+                    logger.warning("Invalid approved_ids: expected list of strings, got %r", type(ids).__name__)
+                    continue
                 await queue.put(SessionCommand(approve=ApprovalRequest(approved_ids=ids)))
             elif msg_type == "extend":
                 await queue.put(SessionCommand(extend=ExtendRequest()))
@@ -323,6 +333,9 @@ async def _forward_events(
                     ],
                 }
             )
+            await ws.send_json({"type": "closed"})
+            done.set()
+            break
 
         elif oneof == "expiring":
             await ws.send_json(

@@ -209,6 +209,17 @@ export function useSessionStream() {
           case "result":
             setResult(msg as unknown as SessionResult);
             updateStatus("complete");
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "close" }));
+              setTimeout(() => {
+                if (
+                  ws.readyState === WebSocket.OPEN ||
+                  ws.readyState === WebSocket.CLOSING
+                ) {
+                  ws.close(1000);
+                }
+              }, 100);
+            }
             break;
 
           case "expiring":

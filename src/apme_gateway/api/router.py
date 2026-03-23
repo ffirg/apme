@@ -1,9 +1,9 @@
-"""REST API endpoints for the gateway.
+"""REST and WebSocket API endpoints for the gateway.
 
 Read endpoints serve persisted scan data.  Write operations happen via the
-gRPC Reporting servicer (engine push model, ADR-020).  The ``POST /scans``
-endpoint initiates a scan by streaming files to Primary and relaying
-real-time progress back via SSE (ADR-029).
+gRPC Reporting servicer (engine push model, ADR-020).  The ``WS /ws/session``
+endpoint bridges the browser to Primary's FixSession gRPC stream for the
+full scan + fix lifecycle (ADR-029).
 """
 
 from __future__ import annotations
