@@ -17,7 +17,6 @@ export function useApmeNavigation(): PageNavigationItem[] {
     () => [
       { id: 'dashboard', path: '', label: 'Dashboard', element: <DashboardPage /> },
       {
-        id: 'reporting',
         label: 'Reporting',
         path: '',
         children: [
@@ -26,7 +25,6 @@ export function useApmeNavigation(): PageNavigationItem[] {
         ],
       },
       {
-        id: 'operations',
         label: 'Operations',
         path: '',
         children: [
@@ -39,7 +37,6 @@ export function useApmeNavigation(): PageNavigationItem[] {
         ],
       },
       {
-        id: 'admin',
         label: 'Settings',
         path: '',
         children: [
