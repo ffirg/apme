@@ -15,11 +15,11 @@ import { SettingsPage } from '../pages/SettingsPage';
 export function useApmeNavigation(): PageNavigationItem[] {
   return useMemo<PageNavigationItem[]>(
     () => [
-      { id: 'dashboard', path: '', label: 'Dashboard', element: <DashboardPage /> },
       {
         label: 'Reporting',
         path: '',
         children: [
+          { id: 'dashboard', path: '', label: 'Dashboard', element: <DashboardPage /> },
           { id: 'violations', path: 'violations', label: 'Top Violations', element: <TopViolationsPage /> },
           { id: 'ai-metrics', path: 'ai-metrics', label: 'AI Metrics', element: <AiMetricsPage /> },
         ],
