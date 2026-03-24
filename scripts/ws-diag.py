@@ -16,14 +16,13 @@ import argparse
 import asyncio
 import base64
 import json
-import signal
 import sys
 import time
 from pathlib import Path
 
 try:
-    import websockets
-    from websockets.client import WebSocketClientProtocol
+    import websockets  # type: ignore[import-not-found]
+    from websockets.client import WebSocketClientProtocol  # type: ignore[import-not-found]  # noqa: F401
 except ImportError:
     sys.exit("Install websockets: pip install websockets")
 
@@ -46,6 +45,14 @@ async def run(
     model: str,
     auto_approve: bool,
 ) -> None:
+    """Connect to the gateway WS endpoint, upload files, and monitor events.
+
+    Args:
+        target: File or directory containing YAML files to upload.
+        ws_url: WebSocket URL of the gateway endpoint.
+        model: AI model identifier (empty string disables AI).
+        auto_approve: If True, automatically approve all AI proposals.
+    """
     t0 = time.monotonic()
     last_msg_at = time.monotonic()
 
@@ -83,11 +90,15 @@ async def run(
             await ws.send(json.dumps({"type": "start", "options": options}))
 
             for path, content in yaml_files:
-                await ws.send(json.dumps({
-                    "type": "file",
-                    "path": path,
-                    "content": base64.b64encode(content).decode(),
-                }))
+                await ws.send(
+                    json.dumps(
+                        {
+                            "type": "file",
+                            "path": path,
+                            "content": base64.b64encode(content).decode(),
+                        }
+                    )
+                )
             await ws.send(json.dumps({"type": "files_done"}))
             _log(f"[{_ts()}] [{_elapsed(t0)}] Upload complete")
 
@@ -132,17 +143,24 @@ async def run(
                     ai = report.get("remaining_ai", 0)
                     manual = report.get("remaining_manual", 0)
                     patches = len(msg.get("applied_patches", []))
-                    _log(f"[{_ts()}] [{_elapsed(t0)}] TIER1 COMPLETE fixed={fixed} ai={ai} manual={manual} patches={patches} (gap={gap:.1f}s)")
+                    _log(
+                        f"[{_ts()}] [{_elapsed(t0)}] TIER1 COMPLETE"
+                        f" fixed={fixed} ai={ai} manual={manual} patches={patches} (gap={gap:.1f}s)"
+                    )
 
                 elif msg_type == "proposals":
                     proposals = msg.get("proposals", [])
                     proposal_count += len(proposals)
-                    _log(f"[{_ts()}] [{_elapsed(t0)}] PROPOSALS: {len(proposals)} received (total={proposal_count}, gap={gap:.1f}s)")
+                    _log(
+                        f"[{_ts()}] [{_elapsed(t0)}] PROPOSALS: {len(proposals)} received"
+                        f" (total={proposal_count}, gap={gap:.1f}s)"
+                    )
                     for p in proposals:
                         pid = p.get("id", "?")
                         rule = p.get("rule_id", "?")
                         conf = p.get("confidence", 0)
-                        _log(f"    [{rule}] {p.get('file', '?')} L{p.get('line_start', '?')}-{p.get('line_end', '?')} conf={conf:.0%} id={pid}")
+                        line_s, line_e = p.get("line_start", "?"), p.get("line_end", "?")
+                        _log(f"    [{rule}] {p.get('file', '?')} L{line_s}-{line_e} conf={conf:.0%} id={pid}")
 
                     if auto_approve and proposals:
                         approved = [p["id"] for p in proposals]
@@ -156,7 +174,9 @@ async def run(
                 elif msg_type == "result":
                     remaining = len(msg.get("remaining_violations", []))
                     patches = len(msg.get("patches", []))
-                    _log(f"[{_ts()}] [{_elapsed(t0)}] RESULT: {patches} patches, {remaining} remaining (gap={gap:.1f}s)")
+                    _log(
+                        f"[{_ts()}] [{_elapsed(t0)}] RESULT: {patches} patches, {remaining} remaining (gap={gap:.1f}s)"
+                    )
                     await ws.send(json.dumps({"type": "close"}))
 
                 elif msg_type == "error":
@@ -182,11 +202,16 @@ async def run(
 
 
 def main() -> None:
+    """CLI entry point for ws-diag."""
     parser = argparse.ArgumentParser(description="APME WebSocket diagnostic client")
-    parser.add_argument("target", nargs="?", default="tests/fixtures/terrible-playbook",
-                        help="File or directory to scan")
-    parser.add_argument("--url", default="ws://localhost:8081/api/v1/ws/session",
-                        help="WebSocket URL (default: ws://localhost:8081/api/v1/ws/session)")
+    parser.add_argument(
+        "target", nargs="?", default="tests/fixtures/terrible-playbook", help="File or directory to scan"
+    )
+    parser.add_argument(
+        "--url",
+        default="ws://localhost:8081/api/v1/ws/session",
+        help="WebSocket URL (default: ws://localhost:8081/api/v1/ws/session)",
+    )
     parser.add_argument("--model", default="", help="AI model to use (enables AI)")
     parser.add_argument("--auto-approve", action="store_true", help="Auto-approve all proposals")
     args = parser.parse_args()
