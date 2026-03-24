@@ -8,6 +8,9 @@ cd "$ROOT"
 echo "==> Building base image (shared dependencies)..."
 podman build -t localhost/apme-base:latest -f containers/base/Dockerfile .
 
+echo "==> Pulling Abbenay AI image..."
+podman pull ghcr.io/redhat-developer/abbenay:2026.3.7-alpha
+
 echo "==> Building service images..."
 podman build -t apme-primary:latest -f containers/primary/Dockerfile .
 podman build -t apme-native:latest -f containers/native/Dockerfile .

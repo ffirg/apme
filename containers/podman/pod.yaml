@@ -32,6 +32,12 @@ spec:
           value: "http://127.0.0.1:8765"
         - name: APME_REPORTING_ENDPOINT
           value: "127.0.0.1:50060"
+        - name: APME_ABBENAY_ADDR
+          value: "127.0.0.1:50057"
+        - name: APME_ABBENAY_TOKEN
+          value: "apme-dev-token"
+        - name: APME_AI_MODEL
+          value: "${APME_AI_MODEL}"
       ports:
         - containerPort: 50051
           hostPort: 50051
@@ -100,6 +106,23 @@ spec:
       ports:
         - containerPort: 8081
           hostPort: 8081
+    - name: abbenay
+      image: ghcr.io/redhat-developer/abbenay:2026.3.7-alpha
+      args: ["daemon", "--grpc-host", "0.0.0.0", "--grpc-port", "50057"]
+      env:
+        - name: OPENROUTER_API_KEY
+          value: "${OPENROUTER_API_KEY}"
+        - name: APME_ABBENAY_TOKEN
+          value: "apme-dev-token"
+        - name: XDG_RUNTIME_DIR
+          value: "/tmp/abbenay-run"
+      ports:
+        - containerPort: 50057
+          hostPort: 50057
+      volumeMounts:
+        - name: abbenay-config
+          mountPath: /home/abbenay/.config/abbenay/config.yaml
+          readOnly: true
     - name: galaxy-proxy
       image: apme-galaxy-proxy:latest
       ports:
@@ -121,3 +144,7 @@ spec:
       hostPath:
         path: __APME_CACHE_PATH__/proxy
         type: DirectoryOrCreate
+    - name: abbenay-config
+      hostPath:
+        path: ${APME_ROOT}/containers/abbenay/config.yaml
+        type: File
