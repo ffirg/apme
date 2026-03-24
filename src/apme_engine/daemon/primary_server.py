@@ -16,7 +16,7 @@ import shutil
 import tempfile
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -482,7 +482,7 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         _pcb = progress_callback
 
         task_names: list[str] = []
-        task_coros: list[object] = []
+        task_coros: list[Awaitable[_ValidatorResult]] = []
         for name, env_var in VALIDATOR_ENV_VARS.items():
             addr = os.environ.get(env_var)
             if not addr:
@@ -506,11 +506,13 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
 
             async def _run_validator(
                 name: str,
-                coro: object,
+                coro: Awaitable[_ValidatorResult],
             ) -> tuple[str, _ValidatorResult]:
                 nonlocal validators_done
-                result: _ValidatorResult = await coro  # type: ignore[misc]
-                validators_done += 1
+                try:
+                    result: _ValidatorResult = await coro
+                finally:
+                    validators_done += 1
                 if _pcb:
                     count = len(result.violations)
                     _pcb("scan", f"{name.title()}: {count} findings", validators_done / num_validators)
@@ -523,9 +525,9 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
             fan_out_ms = (time.monotonic() - fan_t0) * 1000
 
             counts: dict[str, int] = {}
-            for item in named_results:
+            for vname, item in zip(task_names, named_results, strict=True):
                 if isinstance(item, BaseException):
-                    logger.error("Validator raised (req=%s): %s", scan_id, item)
+                    logger.error("Validator %s raised (req=%s): %s", vname, scan_id, item)
                     continue
                 name, result = item
                 counts[name] = len(result.violations)

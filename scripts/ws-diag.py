@@ -22,7 +22,6 @@ from pathlib import Path
 
 try:
     import websockets  # type: ignore[import-not-found]
-    from websockets.client import WebSocketClientProtocol  # type: ignore[import-not-found]  # noqa: F401
 except ImportError:
     sys.exit("Install websockets: pip install websockets")
 
