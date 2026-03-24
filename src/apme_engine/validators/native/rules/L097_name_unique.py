@@ -75,8 +75,12 @@ class NameUniqueRule(Rule):
                 rule=self.get_metadata(),
             )
 
-        siblings = getattr(ctx, "siblings", None) or []
-        all_names = [getattr(s.spec, "name", None) for s in siblings if getattr(s.spec, "name", None)]
+        all_targets = list(ctx.sequence) if ctx.sequence else []
+        all_names = [
+            getattr(t.spec, "name", None)
+            for t in all_targets
+            if t.type == RunTargetType.Task and getattr(t.spec, "name", None)
+        ]
         counts = Counter(all_names)
         verdict = counts.get(task_name, 0) > 1
         detail: dict[str, object] = {}

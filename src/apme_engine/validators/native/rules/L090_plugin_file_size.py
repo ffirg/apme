@@ -8,7 +8,6 @@ from apme_engine.engine.models import (
     Rule,
     RuleResult,
     RuleScope,
-    RunTargetType,
     Severity,
     YAMLDict,
 )
@@ -54,7 +53,7 @@ class PluginFileSizeRule(Rule):
         """
         if ctx.current is None:
             return False
-        return bool(ctx.current.type in (RunTargetType.TaskFile, RunTargetType.Task))
+        return False  # no Python-file target type yet; YAML targets don't carry .py content
 
     def process(self, ctx: AnsibleRunContext) -> RuleResult | None:
         """Check plugin file line count.

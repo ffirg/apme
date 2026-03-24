@@ -78,7 +78,7 @@
 | L072 | OPA | Consider setting backup true on template/copy tasks. |  |
 | L073 | Native | YAML should use 2-space indentation. |  |
 | L074 | Native | Role names should not contain dashes. |  |
-| L075 | Native | Templates should include ansible_managed comment. |  |
+| L075 | Native | Template source files should use .j2 extension (ansible_managed best practice). |  |
 | L076 | Native | Use ansible_facts bracket notation instead of injected fact variables. |  |
 | L077 | Native | Roles should have meta/argument_specs.yml for fail-fast parameter validation. |  |
 | L078 | Native | Use bracket notation for dict key access in Jinja. |  |
@@ -228,7 +228,7 @@
 | L060 | Line too long (exceeds 160 characters). |  |
 | L073 | YAML should use 2-space indentation. |  |
 | L074 | Role names should not contain dashes. |  |
-| L075 | Templates should include ansible_managed comment. |  |
+| L075 | Template source files should use .j2 extension (ansible_managed best practice). |  |
 | L076 | Use ansible_facts bracket notation instead of injected fact variables. |  |
 | L077 | Roles should have meta/argument_specs.yml for fail-fast parameter validation. |  |
 | L078 | Use bracket notation for dict key access in Jinja. |  |
@@ -310,3 +310,23 @@ Rules without fixers fall to Tier 2 (AI-proposable) or Tier 3 (manual review).
 
 | Rule ID | Transform |
 |---------|-----------|
+
+---
+
+<!-- The appendix below is manually maintained. -->
+
+## Appendix: Good Practices Beyond Automated Tooling
+
+The following recommendations from the [automation-good-practices](../automation-good-practices/) documentation cannot be enforced by static analysis rules. They require human judgment, team agreement, or semantic understanding that goes beyond what a linter can detect.
+
+| # | Guideline | Why Not Automatable |
+|---|-----------|---------------------|
+| 1 | Agree as a team when to use roles vs playbooks vs workflows | Team-level architecture decision |
+| 2 | Prefer declarative over imperative; focus reduces complexity | Subjective design judgment |
+| 3 | Don't build structured data in Jinja; use filter plugins | Requires understanding Jinja complexity intent |
+| 4 | Task names should be imperative voice ("Ensure …") | Natural language analysis |
+| 5 | Cast public API values with `int`/`float`/`bool` before numeric ops | Requires type inference across variable flow |
+| 6 | Split large Jinja templates by logical sections | Subjective sizing judgment |
+| 7 | Design roles around delivered functionality, not single implementation | Architecture judgment |
+| 8 | Identify single sources of truth per data domain; no overlap | Requires cross-source semantic analysis |
+| 9 | Document all plugin types: parameters, outputs, examples | Documentation completeness / quality check |

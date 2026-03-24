@@ -18,7 +18,6 @@ from apme_engine.engine.models import (
 )
 
 _SINGLE_QUOTED_VALUE = re.compile(r":\s+'[^']*'\s*$")
-_NEEDS_QUOTING = re.compile(r":\s+([^\s#\"{}\[\]|>][^#\n]*)\s*$")
 
 
 @dataclass
@@ -70,7 +69,7 @@ class YamlQuotedStringsRule(Rule):
         target = ctx.current
         if target is None:
             return None
-        raw = getattr(target.spec, "raw_yaml", None) or ""
+        raw = getattr(target.spec, "yaml_lines", None) or ""
         if not raw:
             return RuleResult(
                 verdict=False,

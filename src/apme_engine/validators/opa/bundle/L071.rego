@@ -1,4 +1,4 @@
-# L071: Use notify/handler instead of when: result is changed pattern
+# L071: Consider using template instead of copy with Jinja content
 
 package apme.rules
 

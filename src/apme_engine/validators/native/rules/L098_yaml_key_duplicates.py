@@ -58,7 +58,7 @@ class YamlKeyDuplicatesRule(Rule):
         return bool(ctx.current.type in (RunTargetType.Task, RunTargetType.Play))
 
     def process(self, ctx: AnsibleRunContext) -> RuleResult | None:
-        """Scan raw YAML content for duplicate keys at the same indentation level.
+        """Scan YAML content for duplicate keys at the same indentation level.
 
         Args:
             ctx: AnsibleRunContext to process.
@@ -69,7 +69,7 @@ class YamlKeyDuplicatesRule(Rule):
         target = ctx.current
         if target is None:
             return None
-        raw = getattr(target.spec, "raw_yaml", None) or ""
+        raw = getattr(target.spec, "yaml_lines", None) or ""
         if not raw:
             return RuleResult(
                 verdict=False,

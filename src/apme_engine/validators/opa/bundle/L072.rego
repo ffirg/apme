@@ -1,5 +1,3 @@
-# L072: become_user without become set to true (L018 covers partial-become;
-# this covers backup: true recommendation for copy/template tasks)
 # L072: Set backup: true on template/copy tasks
 
 package apme.rules

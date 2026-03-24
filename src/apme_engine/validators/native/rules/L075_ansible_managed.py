@@ -1,4 +1,4 @@
-"""Native rule L075: detect templates missing ansible_managed comment."""
+"""Native rule L075: detect template tasks with non-.j2 source files."""
 
 from dataclasses import dataclass
 from typing import cast
@@ -19,7 +19,7 @@ from apme_engine.engine.models import (
 
 @dataclass
 class AnsibleManagedRule(Rule):
-    """Rule for templates that should include ansible_managed comment.
+    """Rule for template tasks whose src does not use .j2 extension.
 
     Attributes:
         rule_id: Rule identifier.
@@ -33,7 +33,7 @@ class AnsibleManagedRule(Rule):
     """
 
     rule_id: str = "L075"
-    description: str = "Templates should include ansible_managed comment"
+    description: str = "Template source files should use .j2 extension (ansible_managed best practice)"
     enabled: bool = True
     name: str = "AnsibleManaged"
     version: str = "v0.0.1"
@@ -55,7 +55,7 @@ class AnsibleManagedRule(Rule):
         return bool(ctx.current.type == RunTargetType.Task)
 
     def process(self, ctx: AnsibleRunContext) -> RuleResult | None:
-        """Check if template task references a source that should have ansible_managed.
+        """Check if template task src uses .j2 extension.
 
         Args:
             ctx: AnsibleRunContext to process.
