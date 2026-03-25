@@ -10,7 +10,7 @@ Proposed
 
 ## Context
 
-APME has 100+ rules spread across four built-in validators (Native, OPA, Ansible, Gitleaks) and an extensible set of third-party plugin containers (ADR-032). Today, rules are **opaque** — nobody outside the engine knows what rules exist until violations appear in scan output. There is no catalog, no ability to enable/disable rules, and no mechanism for severity overrides.
+APME has 100+ rules spread across four built-in validators (Native, OPA, Ansible, Gitleaks) and an extensible set of third-party plugin containers ([ADR-032](ADR-032-third-party-plugin-services.md)). Today, rules are **opaque** — nobody outside the engine knows what rules exist until violations appear in scan output. There is no catalog, no ability to enable/disable rules, and no mechanism for severity overrides.
 
 Two proposed features — rule severity ratings (REQ-005 / PR #88) and rule enable/disable with acknowledgment (REQ-007 / PR #90) — both require the same underlying infrastructure: a rule catalog that the Gateway knows about, and a mechanism to deliver overrides to the engine at scan time. Without this architecture, both specs jump straight to UI concerns without answering where the catalog lives, how overrides reach the engine, or what happens in multi-pod deployments.
 
@@ -19,7 +19,7 @@ Two proposed features — rule severity ratings (REQ-005 / PR #88) and rule enab
 The rule set is not static or uniform:
 
 - **Built-in rules** are baked into the engine image. Different engine versions have different rules (e.g., v2.1 adds L073).
-- **Plugin rules** are dynamic. ADR-032 plugins register `EXT-` prefixed rules. A pod with the `secteam` plugin has rules that a pod without it does not.
+- **Plugin rules** are dynamic. [ADR-032 (Third-Party Plugin Services)](ADR-032-third-party-plugin-services.md) plugins register `EXT-` prefixed rules via their `Describe` RPC. A pod with the `secteam` plugin has rules that a pod without it does not.
 - **Multi-pod deployments** (ADR-012, ADR-034) mean multiple Primaries, potentially with different engine versions or plugin sets. A management UI that shows rules from one pod may not reflect the reality of another.
 
 ### Override delivery
@@ -39,7 +39,7 @@ In a multi-pod deployment, which pod's rule set is canonical? If Pod A has `EXT-
 
 ### 1. Primary registers rules with the Gateway on startup
 
-When a Primary starts, it discovers its validators and plugins (per ADR-005 and ADR-032), collects the full rule set from each, and registers the catalog with the Gateway.
+When a Primary starts, it discovers its validators and plugins (per ADR-005 and [ADR-032](ADR-032-third-party-plugin-services.md)), collects the full rule set from each, and registers the catalog with the Gateway.
 
 Each rule registration includes:
 
@@ -71,11 +71,12 @@ This makes rule lifecycle automatic. Engine upgrade adds L073? Primary restarts,
 
 **Single-pod** (default): the one Primary is the authority. No flag needed.
 
-**Multi-pod**: one pod is designated as the **rule authority** via configuration (e.g., `APME_RULE_AUTHORITY=true` env var). That Primary's registration defines the canonical catalog. Other Primaries do not register rules — they are listeners that receive scan requests and execute.
+**Multi-pod**: one pod is designated as the **rule authority** via explicit configuration (e.g., `APME_RULE_AUTHORITY=true` env var). Exactly one Primary per deployment should have this flag set. That Primary's registration defines the canonical catalog. Other Primaries do not register rules — they are listeners that receive scan requests and execute.
 
+- The Gateway only accepts rule registrations from a Primary that identifies itself as the authority. Registrations from non-authority Primaries are rejected (no-op, logged). There is no implicit "first to register wins" behavior.
 - If the authority Primary goes down, other Primaries keep scanning. The catalog is in the Gateway's DB. The authority is a registration-time concept, not a runtime dependency.
 - If the authority Primary comes back (or upgrades), it re-registers. The Gateway reconciles the catalog.
-- For identical replicas (same image, same plugins), any Primary can be the authority since they all have the same rule set. First to register wins.
+- For identical replicas (same image, same plugins), any Primary can be chosen as the authority since they all have the same rule set, but the choice is explicit via configuration.
 
 ### 4. Overrides ride with `ScanRequest`
 
@@ -210,7 +211,7 @@ Deploying a plugin to one pod means deploying it to all pods. Removing a plugin 
 
 - Inline acknowledgment (`# apme:ignore`) is unaffected — it's scan-time annotation parsing in the engine, independent of the catalog.
 - Existing scan behavior is unchanged when no overrides are present (all rules enabled at default severity).
-- Plugin `Describe` RPC (ADR-032) provides the rule metadata that Primaries forward during registration.
+- Plugin `Describe` RPC ([ADR-032](ADR-032-third-party-plugin-services.md)) provides the rule metadata that Primaries forward during registration.
 
 ## Implementation Notes
 
@@ -230,9 +231,9 @@ Deploying a plugin to one pod means deploying it to all pods. Removing a plugin 
 
 ### Phase 3: Rule mismatch enforcement
 
-1. Primary validates incoming rule overrides against its known rule set
-2. If an override references a rule the Primary doesn't have → return error in `ScanResponse.diagnostics`
-3. Gateway interprets this as a deployment issue and surfaces it in the UI
+1. Primary validates incoming rule configs against its known rule set
+2. If a config references a rule the Primary doesn't have → Primary aborts the `Scan` RPC with `FAILED_PRECONDITION` status, including the unknown rule IDs in the status detail
+3. Gateway interprets this non-OK gRPC status as a deployment/configuration issue and surfaces it in the UI
 
 ### Phase 4: Gateway UI (REQ-005 / REQ-007)
 
