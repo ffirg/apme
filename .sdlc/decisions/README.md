@@ -101,6 +101,8 @@ Decision Requests (DRs) provide a formal mechanism for:
 
 | DR | Title | Category | Priority | Raised |
 |----|-------|----------|----------|--------|
+| [DR-014](open/DR-014-eda-integration-approach.md) | EDA Integration Approach | Architecture | High | 2026-03-25 |
+| [DR-015](open/DR-015-controller-policy-integration.md) | Controller Policy Integration | Architecture | High | 2026-03-25 |
 
 ### Closed: Decided
 

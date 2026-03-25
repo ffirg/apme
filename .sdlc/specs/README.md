@@ -20,6 +20,9 @@ Specs answer "What does this feature do?" They provide:
 | REQ-004 | Enterprise Integration | PHASE-003 | Draft |
 | REQ-008 | ROI Dashboard | PHASE-003 | Draft |
 | REQ-010 | Dependency Health Assessment | PHASE-003 | Draft |
+| REQ-012 | EDA Rulebook Validation | PHASE-003 | Draft |
+| REQ-013 | Extended OPA Policy Inputs | PHASE-003 | Draft |
+| REQ-014 | Policy Permissive Mode | PHASE-003 | Draft |
 
 ## Directory Structure
 
@@ -37,7 +40,10 @@ specs/
 ├── REQ-003-security-compliance/
 ├── REQ-004-enterprise-integration/
 ├── REQ-008-roi-dashboard/
-└── REQ-010-dependency-health/
+├── REQ-010-dependency-health/
+├── REQ-012-eda-rulebook-validation/
+├── REQ-013-opa-policy-inputs/
+└── REQ-014-policy-permissive-mode/
 ```
 
 ## Phase Relationship
@@ -55,7 +61,10 @@ PHASE-003: Enterprise Dashboard
 ├── REQ-003: Security & Compliance
 ├── REQ-004: Enterprise Integration
 ├── REQ-008: ROI Dashboard
-└── REQ-010: Dependency Health Assessment
+├── REQ-010: Dependency Health Assessment
+├── REQ-012: EDA Rulebook Validation
+├── REQ-013: Extended OPA Policy Inputs
+└── REQ-014: Policy Permissive Mode
 ```
 
 See [phases/README.md](../phases/README.md) for phase details.
