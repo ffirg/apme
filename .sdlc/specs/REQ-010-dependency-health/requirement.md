@@ -35,7 +35,7 @@ This separates concerns: the engine scans content, the Gateway stores data and s
 │  │  :50051   │    │  Proxy    │    │   Service (sidecar)       │  │
 │  │           │    │  :8765    │    │                           │  │
 │  │  scans    │◄───┤  resolves │◄───┤  1. GET /api/v1/collections│  │
-│  │  content  │    │  collctns │    │     from Gateway          │  │
+│  │  content  │    │  collections│   │     from Gateway          │  │
 │  │           │    │           │    │  2. Download collection    │  │
 │  └─────▲─────┘    └──────────┘    │     from Galaxy Proxy     │  │
 │        │                          │  3. Scan via Engine gRPC   │  │
@@ -113,7 +113,7 @@ This separates concerns: the engine scans content, the Gateway stores data and s
 
 1. Service queries Gateway: `GET /api/v1/collections` (returns all known collection+version pairs)
 2. For each unscanned collection+version:
-   a. Download from Galaxy Proxy (PEP 503 endpoint)
+   a. Resolve and retrieve the collection artifact via the Galaxy Proxy's PEP 503 simple index (e.g., install via `uv pip install` against `/simple/` or fetch the wheel/tarball from the index)
    b. Submit to Engine via gRPC `Scan` RPC (same API the CLI uses)
    c. Receive violations, compute health score
    d. `POST` health assessment back to Gateway
