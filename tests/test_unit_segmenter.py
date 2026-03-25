@@ -319,6 +319,6 @@ class TestEngineUnitEscalation:
             ai_provider=mock_provider,
         )
 
-        report = engine.remediate([str(playbook)], apply=False)
+        engine.remediate([str(playbook)], apply=False)
 
         assert mock_provider.propose_unit_fixes.call_count == 0

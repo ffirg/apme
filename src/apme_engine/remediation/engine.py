@@ -567,6 +567,15 @@ class RemediationEngine:
             patch = patches[0]
             fixed_snippet = patch.fixed_lines
 
+            if file_content.count(unit.snippet) != 1:
+                logger.warning(
+                    "Skipping unit L%d-%d: snippet occurs %d times (ambiguous)",
+                    unit.line_start,
+                    unit.line_end,
+                    file_content.count(unit.snippet),
+                )
+                continue
+
             patched_content = file_content.replace(unit.snippet, fixed_snippet, 1)
             unit_diff = "".join(
                 difflib.unified_diff(
@@ -578,10 +587,11 @@ class RemediationEngine:
             )
 
             rule_ids = [r.strip() for r in patch.rule_id.split(",")]
+            rule_id_set = set(rule_ids)
 
             for v in unit.violations:
                 rid = str(v.get("rule_id", ""))
-                if rid in patch.rule_id:
+                if rid in rule_id_set:
                     v["remediation_resolution"] = (
                         RemediationResolution.AI_LOW_CONFIDENCE
                         if patch.confidence < 0.7

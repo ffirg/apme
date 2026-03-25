@@ -104,10 +104,14 @@ class AIProposal:
             File content with this unit's fix applied.
 
         Raises:
-            ValueError: If the original snippet is not found in file_content.
+            ValueError: If the original snippet is not found in file_content
+                or if it occurs multiple times (ambiguous application).
         """
-        if self.original_snippet not in file_content:
+        occurrences = file_content.count(self.original_snippet)
+        if occurrences == 0:
             raise ValueError(f"Cannot apply proposal: original snippet not found in {self.file}")
+        if occurrences > 1:
+            raise ValueError(f"Cannot apply proposal: original snippet occurs {occurrences} times in {self.file}")
         return file_content.replace(self.original_snippet, self.fixed_snippet, 1)
 
 

@@ -285,7 +285,7 @@ The LLM receives the unit's YAML snippet and its violations. It returns the comp
 
 ### Content-Based Application
 
-Each `AIProposal` carries `original_snippet` and `fixed_snippet`. Application uses string replacement (`file_content.replace(original_snippet, fixed_snippet, 1)`) rather than line-number indexing. This makes proposals safe to apply in any order — applying one unit's fix cannot invalidate another's because units are located by content, not position.
+Each `AIProposal` carries `original_snippet` and `fixed_snippet`. Application uses string replacement rather than line-number indexing. This makes proposals safe to apply in any order **as long as each `original_snippet` is unique within the file** — applying one unit's fix cannot invalidate another's because units are located by content, not position. When identical snippets appear multiple times in the same file, the engine detects the ambiguity and skips those units rather than risking a wrong-location replacement.
 
 ### CLI Modes
 

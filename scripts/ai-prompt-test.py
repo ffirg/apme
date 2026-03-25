@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from apme_engine.remediation.abbenay_provider import (  # noqa: E402
     _build_unit_prompt,
     _extract_json_object,
-    _parse_batch_response,
+    _parse_unit_response,
     discover_abbenay,
 )
 
@@ -26,7 +26,7 @@ SAMPLE_SNIPPET = """\
       shell: hostname
 """
 
-SAMPLE_VIOLATIONS = [
+SAMPLE_VIOLATIONS: list[dict[str, str | int | list[int] | bool | None]] = [
     {
         "rule_id": "L007",
         "line": 24,
@@ -46,7 +46,11 @@ SAMPLE_VIOLATIONS = [
 
 
 async def test_prompt(model: str) -> None:
-    """Send a unit prompt to Abbenay and print results."""
+    """Send a unit prompt to Abbenay and print results.
+
+    Args:
+        model: LLM model identifier (e.g. ``openrouter/anthropic/claude-sonnet-4``).
+    """
     import os
 
     from abbenay_grpc import AbbenayClient
@@ -101,9 +105,7 @@ async def test_prompt(model: str) -> None:
         print("\nPARSED JSON:")
         print(json.dumps(data, indent=2))
 
-        patches, skipped = _parse_batch_response(
-            response_text, SAMPLE_SNIPPET, min_line_override=23, max_line_override=24
-        )
+        patches, skipped = _parse_unit_response(response_text, SAMPLE_SNIPPET, 23, 24)
         print(f"\nPatches: {len(patches) if patches else 0}")
         print(f"Skipped: {len(skipped)}")
         if patches:

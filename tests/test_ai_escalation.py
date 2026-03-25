@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from apme_engine.engine.models import ViolationDict
+from apme_engine.engine.node_index import NodeIndex
 from apme_engine.remediation.abbenay_provider import (
     _build_batch_prompt,
     _extract_code_window,
@@ -1017,8 +1018,6 @@ class TestEngineAIEscalation:
         Returns:
             NodeIndex with a single task node.
         """
-        from apme_engine.engine.node_index import NodeIndex
-
         payload = {
             "hierarchy": [
                 {
@@ -1161,8 +1160,6 @@ class TestEngineAIEscalation:
         Args:
             tmp_path: Pytest temporary directory fixture.
         """
-        from apme_engine.engine.node_index import NodeIndex
-
         play1 = tmp_path / "play1.yml"
         play2 = tmp_path / "play2.yml"
         play1.write_text("- name: a\n  debug: msg=1\n")

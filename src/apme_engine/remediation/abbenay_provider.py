@@ -504,11 +504,15 @@ def _parse_unit_response(
     combined_expl = "; ".join(explanations[:3]) if explanations else "AI-generated fix"
     avg_conf = sum(confidences) / len(confidences) if confidences else 0.85
 
+    fixed_lines = fixed_snippet.rstrip("\n")
+    if original_snippet.endswith("\n"):
+        fixed_lines += "\n"
+
     patch = AIPatch(
         rule_id=combined_rule,
         line_start=line_start,
         line_end=line_end,
-        fixed_lines=fixed_snippet.rstrip("\n"),
+        fixed_lines=fixed_lines,
         explanation=combined_expl,
         confidence=avg_conf,
     )
