@@ -86,6 +86,7 @@ message RuleOverride {
   string rule_id = 1;
   optional Severity severity = 2;   // override default severity
   optional bool enabled = 3;        // override default enabled state
+  optional bool enforced = 4;       // when true, inline # apme:ignore is disregarded
 }
 
 message ScanOptions {
@@ -101,6 +102,7 @@ The Primary applies overrides before fanning out to validators:
 
 - Disabled rules are excluded from the validation fan-out
 - Severity overrides are applied to violations before returning results
+- Enforced rules ignore inline `# apme:ignore` annotations — the violation always counts regardless of code-level suppression. This is the compliance lever: an admin can mandate that certain rules (e.g., SEC, policy) cannot be suppressed by developers at the code level
 
 The CLI can also pass overrides (from a local config file or flags), enabling the same mechanism outside the Gateway.
 
