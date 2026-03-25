@@ -35,7 +35,7 @@ APME rings the bell (webhook notification) and serves the food (REST API). Consu
 The Gateway (ADR-029, ADR-037) provides:
 
 - **Project model** with `repo_url`, `branch`, `health_score` (0–100)
-- **REST endpoints**: project CRUD, scans per project, violations per project, trends, dashboard summary, rankings
+- **REST endpoints**: project read (list/detail), scans per project, violations per project, trends, dashboard summary, rankings
 - **SQLite persistence** with violation details, proposals, scan logs
 - **Health score computation** from violation severity/counts
 - **Pluggable event sinks** (ADR-020) for scan completion notifications
@@ -48,9 +48,9 @@ What is missing: documentation as a public contract, authentication for machine 
 
 APME does not push data to individual consumers. Instead:
 
-1. **Consumers query the Gateway** by project URL or project ID to get scan status, violations, health scores, and trends.
+1. **Consumers query the Gateway** by project ID to get scan status, violations, health scores, and trends. A planned extension will add lookup by project URL via `GET /api/v1/projects?repo_url=...`.
 2. **Webhook notifications** alert consumers when new scan data is available, so they can pull fresh results on demand rather than polling.
-3. **The project URL is the correlation key.** Controller knows the SCM URL for each job template project. Controller queries APME using that URL. AA gets APME data transitively through Controller — it does not need its own APME integration.
+3. **The project URL is the correlation key.** Controller knows the SCM URL for each job template project and can map it to an APME project ID. Once URL-based lookup is available, Controller will query APME directly by SCM URL. AA gets APME data transitively through Controller — it does not need its own APME integration.
 
 ### Consumer interaction model
 
@@ -58,12 +58,14 @@ APME does not push data to individual consumers. Instead:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      APME Gateway (public API)                      │
 │                                                                     │
-│  GET /api/v1/projects?repo_url=...    → project + health score      │
-│  GET /api/v1/projects/{id}/scans      → scan history                │
-│  GET /api/v1/projects/{id}/violations → filterable violation list    │
-│  GET /api/v1/projects/{id}/health     → health score + gate answer  │
-│  GET /api/v1/projects/{id}/trend      → scan-over-scan trend data   │
-│  POST /api/v1/webhooks                → register notification URL   │
+│  GET /api/v1/projects/{id}            → project + health score               │
+│  GET /api/v1/projects/{id}/scans      → scan history                         │
+│  GET /api/v1/projects/{id}/violations → filterable violation list             │
+│  GET /api/v1/projects/{id}/trend      → scan-over-scan trend data            │
+│  GET /api/v1/dashboard/summary        → org-wide health overview             │
+│  GET /api/v1/projects?repo_url=...    → project lookup by URL (planned)      │
+│  GET /api/v1/projects/{id}/health     → health gate answer (planned)         │
+│  POST /api/v1/webhooks                → register notification URL (planned)  │
 │                                                                     │
 └────────────┬──────────────────────┬───────────────────┬─────────────┘
              │                      │                   │
@@ -100,6 +102,7 @@ The existing Gateway routes (ADR-029) already cover most consumer needs. This AD
 | `GET /api/v1/projects/{id}/scans` | Scan history for trending |
 | `GET /api/v1/projects/{id}/trend` | Scan-over-scan improvement data |
 | `GET /api/v1/dashboard/summary` | Org-wide health overview |
+| `GET /api/v1/dashboard/rankings` | Project rankings by health score or violation counts |
 
 **Planned extensions (not yet implemented)**
 
