@@ -327,6 +327,7 @@ async def test_dashboard_summary_empty(client: AsyncClient) -> None:
     body = resp.json()
     assert body["total_projects"] == 0
     assert body["total_scans"] == 0
+    assert body["current_violations"] == 0
 
 
 async def test_dashboard_summary(client: AsyncClient) -> None:
@@ -342,6 +343,7 @@ async def test_dashboard_summary(client: AsyncClient) -> None:
     body = resp.json()
     assert body["total_projects"] == 2
     assert body["total_scans"] == 2
+    assert body["current_violations"] == 7
 
 
 async def test_dashboard_rankings(client: AsyncClient) -> None:

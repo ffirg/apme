@@ -373,8 +373,8 @@ async def dashboard_summary(db: AsyncSession) -> dict[str, object]:
         db: Active async database session.
 
     Returns:
-        Dict with total_projects, total_scans, total_violations, total_fixed,
-        avg_health_score.
+        Dict with total_projects, total_scans, total_violations,
+        current_violations, total_fixed, avg_health_score.
     """
     total_projects = await project_count(db)
     total_scans_result = await db.execute(select(func.count()).select_from(Scan).where(Scan.project_id.is_not(None)))
@@ -384,6 +384,23 @@ async def dashboard_summary(db: AsyncSession) -> dict[str, object]:
         select(func.coalesce(func.sum(Scan.total_violations), 0)).where(Scan.project_id.is_not(None))
     )
     total_violations = cast(int, violation_result.scalar_one())
+
+    latest_scan = (
+        select(
+            Scan.project_id,
+            func.max(Scan.created_at).label("max_created"),
+        )
+        .where(Scan.project_id.is_not(None))
+        .group_by(Scan.project_id)
+        .subquery()
+    )
+    current_viol_result = await db.execute(
+        select(func.coalesce(func.sum(Scan.total_violations), 0)).join(
+            latest_scan,
+            (Scan.project_id == latest_scan.c.project_id) & (Scan.created_at == latest_scan.c.max_created),
+        )
+    )
+    current_violations = cast(int, current_viol_result.scalar_one())
 
     fixed_result = await db.execute(
         select(func.coalesce(func.sum(Scan.fixed_count), 0)).where(
@@ -400,6 +417,7 @@ async def dashboard_summary(db: AsyncSession) -> dict[str, object]:
         "total_projects": total_projects,
         "total_scans": total_scans,
         "total_violations": total_violations,
+        "current_violations": current_violations,
         "total_fixed": total_fixed,
         "avg_health_score": avg_health,
     }

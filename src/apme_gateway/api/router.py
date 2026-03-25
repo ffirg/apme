@@ -870,10 +870,14 @@ async def project_operate_ws(
             with contextlib.suppress(Exception):
                 kind = event.WhichOneof("event")  # type: ignore[attr-defined]
 
-            if kind == "progress":
+            async def _ensure_started() -> None:
+                nonlocal started_sent
                 if not started_sent:
                     started_sent = True
                     await websocket.send_json({"type": "started", "scan_id": op_scan_id})
+
+            if kind == "progress":
+                await _ensure_started()
                 prog = event.progress  # type: ignore[attr-defined]
                 await websocket.send_json(
                     {
@@ -883,6 +887,7 @@ async def project_operate_ws(
                     }
                 )
             elif kind == "proposals":
+                await _ensure_started()
                 props = event.proposals  # type: ignore[attr-defined]
                 items = [
                     {
@@ -900,46 +905,35 @@ async def project_operate_ws(
             elif kind == "approval_ack":
                 await websocket.send_json({"type": "approval_ack"})
             elif kind == "result":
+                await _ensure_started()
                 res = event.result  # type: ignore[attr-defined]
-                report = getattr(res, "report", None)
-                remaining = getattr(res, "remaining_violations", [])
-                total = len(remaining) + (report.fixed if report else 0)
-                await websocket.send_json(
-                    {
-                        "type": "result",
-                        "total_violations": total,
-                        "auto_fixable": 0,
-                        "ai_candidate": report.remaining_ai if report else 0,
-                        "manual_review": report.remaining_manual if report else 0,
-                        "fixed_count": report.fixed if report else 0,
-                    }
-                )
-            elif kind is None and hasattr(event, "HasField"):
-                if not started_sent:
-                    started_sent = True
-                    await websocket.send_json({"type": "started", "scan_id": op_scan_id})
-                with contextlib.suppress(Exception):
-                    if event.HasField("progress"):
-                        prog = event.progress  # type: ignore[attr-defined]
-                        await websocket.send_json(
-                            {
-                                "type": "progress",
-                                "phase": prog.phase or "processing",
-                                "message": prog.message or "",
-                            }
-                        )
-                    elif event.HasField("result"):
-                        res = event.result  # type: ignore[attr-defined]
-                        summary = getattr(res, "summary", None)
-                        await websocket.send_json(
-                            {
-                                "type": "result",
-                                "total_violations": summary.total if summary else 0,
-                                "auto_fixable": summary.auto_fixable if summary else 0,
-                                "ai_candidate": summary.ai_candidate if summary else 0,
-                                "manual_review": summary.manual_review if summary else 0,
-                            }
-                        )
+                summary = getattr(res, "summary", None)
+                if summary is not None:
+                    # ScanEvent.result → ScanResponse (has ScanSummary)
+                    await websocket.send_json(
+                        {
+                            "type": "result",
+                            "total_violations": summary.total,
+                            "auto_fixable": summary.auto_fixable,
+                            "ai_candidate": summary.ai_candidate,
+                            "manual_review": summary.manual_review,
+                        }
+                    )
+                else:
+                    # SessionEvent.result → SessionResult (has FixReport)
+                    report = getattr(res, "report", None)
+                    remaining = getattr(res, "remaining_violations", [])
+                    total = len(remaining) + (report.fixed if report else 0)
+                    await websocket.send_json(
+                        {
+                            "type": "result",
+                            "total_violations": total,
+                            "auto_fixable": 0,
+                            "ai_candidate": report.remaining_ai if report else 0,
+                            "manual_review": report.remaining_manual if report else 0,
+                            "fixed_count": report.fixed if report else 0,
+                        }
+                    )
 
         raw_specs = options.get("collection_specs", [])
         specs = [str(s) for s in raw_specs] if isinstance(raw_specs, list) else []

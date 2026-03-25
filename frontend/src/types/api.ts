@@ -147,6 +147,7 @@ export interface DashboardSummary {
   total_projects: number;
   total_scans: number;
   total_violations: number;
+  current_violations: number;
   total_fixed: number;
   avg_health_score: number;
 }
