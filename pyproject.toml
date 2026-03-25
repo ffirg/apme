@@ -157,6 +157,13 @@ module = [
 ]
 ignore_missing_imports = true
 
+# Deprecation scraper uses untyped JSON dicts extensively.
+[[tool.mypy.overrides]]
+module = [
+    "scrape_ansible_deprecations",
+]
+disallow_any_explicit = false
+
 [[tool.mypy.overrides]]
 module = [
     "apme.v1.ansible_pb2",
