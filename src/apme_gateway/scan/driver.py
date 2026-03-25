@@ -99,6 +99,7 @@ async def run_project_scan(
     ansible_version: str = "",
     collection_specs: list[str] | None = None,
     progress_callback: ProgressCallback | None = None,
+    scan_id: str | None = None,
 ) -> tuple[str, primary_pb2.ScanResponse | None]:
     """Clone a project repo and run a scan via Primary ScanStream.
 
@@ -110,11 +111,13 @@ async def run_project_scan(
         ansible_version: Target ansible-core version.
         collection_specs: Collection install specs.
         progress_callback: Optional async callable invoked for each ScanEvent.
+        scan_id: Optional pre-generated scan ID; one is created if omitted.
 
     Returns:
         Tuple of (scan_id, ScanResponse or None).
     """
-    scan_id = uuid.uuid4().hex
+    if scan_id is None:
+        scan_id = uuid.uuid4().hex
     session_id = derive_session_id(project_id)
     temp_dir = tempfile.mkdtemp(prefix="apme_project_scan_")
 
@@ -171,6 +174,7 @@ async def run_project_fix(
     ai_model: str = "",
     progress_callback: ProgressCallback | None = None,
     approval_queue: asyncio.Queue[list[str]] | None = None,
+    scan_id: str | None = None,
 ) -> tuple[str, primary_pb2.ScanResponse | None]:
     """Clone a project repo and run a fix session via Primary FixSession.
 
@@ -185,11 +189,13 @@ async def run_project_fix(
         ai_model: AI model identifier.
         progress_callback: Optional async callable for each SessionEvent.
         approval_queue: Queue where approved proposal IDs are placed by the UI.
+        scan_id: Optional pre-generated scan ID; one is created if omitted.
 
     Returns:
         Tuple of (scan_id, ScanResponse or None).
     """
-    scan_id = uuid.uuid4().hex
+    if scan_id is None:
+        scan_id = uuid.uuid4().hex
     session_id = derive_session_id(project_id)
     temp_dir = tempfile.mkdtemp(prefix="apme_project_fix_")
 

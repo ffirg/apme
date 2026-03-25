@@ -62,14 +62,23 @@ export function ProposalReviewPanel({
             </Flex>
           </SplitItem>
         </Split>
-        <div className="apme-proposals-list">
+        <div className="apme-proposals-list" role="group" aria-label="AI fix proposals">
           {proposals.map((p) => (
             <div
               key={p.id}
               className={`apme-proposal-card ${selected.has(p.id) ? 'selected' : ''}`}
+              role="checkbox"
+              aria-checked={selected.has(p.id)}
+              tabIndex={0}
               onClick={() => toggle(p.id)}
+              onKeyDown={(e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                  e.preventDefault();
+                  toggle(p.id);
+                }
+              }}
             >
-              <input type="checkbox" checked={selected.has(p.id)} readOnly className="apme-proposal-checkbox" />
+              <input type="checkbox" checked={selected.has(p.id)} readOnly tabIndex={-1} aria-hidden="true" className="apme-proposal-checkbox" />
               <span className="apme-rule-id">{p.rule_id}</span>
               <span className="apme-proposal-file">{p.file}</span>
               <Label isCompact variant="outline">Tier {p.tier}</Label>

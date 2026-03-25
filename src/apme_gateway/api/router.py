@@ -851,6 +851,7 @@ async def project_operate_ws(
 
         cfg = load_config()
 
+        op_scan_id = uuid.uuid4().hex
         started_sent = False
 
         async def _progress_cb(event: object) -> None:
@@ -872,7 +873,7 @@ async def project_operate_ws(
             if kind == "progress":
                 if not started_sent:
                     started_sent = True
-                    await websocket.send_json({"type": "started"})
+                    await websocket.send_json({"type": "started", "scan_id": op_scan_id})
                 prog = event.progress  # type: ignore[attr-defined]
                 await websocket.send_json(
                     {
@@ -900,21 +901,23 @@ async def project_operate_ws(
                 await websocket.send_json({"type": "approval_ack"})
             elif kind == "result":
                 res = event.result  # type: ignore[attr-defined]
-                summary = getattr(res, "summary", None)
+                report = getattr(res, "report", None)
+                remaining = getattr(res, "remaining_violations", [])
+                total = len(remaining) + (report.fixed if report else 0)
                 await websocket.send_json(
                     {
                         "type": "result",
-                        "total_violations": summary.total if summary else 0,
-                        "auto_fixable": summary.auto_fixable if summary else 0,
-                        "ai_candidate": summary.ai_candidate if summary else 0,
-                        "manual_review": summary.manual_review if summary else 0,
-                        "fixed_count": getattr(res, "fixed", 0) if hasattr(res, "fixed") else 0,
+                        "total_violations": total,
+                        "auto_fixable": 0,
+                        "ai_candidate": report.remaining_ai if report else 0,
+                        "manual_review": report.remaining_manual if report else 0,
+                        "fixed_count": report.fixed if report else 0,
                     }
                 )
             elif kind is None and hasattr(event, "HasField"):
                 if not started_sent:
                     started_sent = True
-                    await websocket.send_json({"type": "started"})
+                    await websocket.send_json({"type": "started", "scan_id": op_scan_id})
                 with contextlib.suppress(Exception):
                     if event.HasField("progress"):
                         prog = event.progress  # type: ignore[attr-defined]
@@ -961,6 +964,7 @@ async def project_operate_ws(
                     ai_model=str(options.get("ai_model", "")),
                     progress_callback=_progress_cb,
                     approval_queue=approval_queue,
+                    scan_id=op_scan_id,
                 )
 
             fix_task = asyncio.create_task(_run_fix())
@@ -985,7 +989,7 @@ async def project_operate_ws(
             finally:
                 if not fix_task.done():
                     fix_task.cancel()
-                with contextlib.suppress(Exception):
+                with contextlib.suppress(asyncio.CancelledError):
                     fix_result = await fix_task
 
             if fix_result is not None:
@@ -999,6 +1003,7 @@ async def project_operate_ws(
                 ansible_version=str(options.get("ansible_version", "")),
                 collection_specs=specs,
                 progress_callback=_progress_cb,
+                scan_id=op_scan_id,
             )
             completed_scan_id = scan_id
 
