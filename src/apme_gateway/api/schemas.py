@@ -384,7 +384,8 @@ class DashboardSummary(BaseModel):  # type: ignore[misc]
     Attributes:
         total_projects: Number of defined projects.
         total_scans: Number of completed scans across all projects.
-        total_violations: Sum of violations across all latest scans.
+        total_violations: Cumulative violations across all scans.
+        current_violations: Violations from each project's latest scan.
         total_fixed: Sum of auto-fixable violations.
         avg_health_score: Mean health score across projects.
     """
@@ -392,6 +393,7 @@ class DashboardSummary(BaseModel):  # type: ignore[misc]
     total_projects: int
     total_scans: int
     total_violations: int
+    current_violations: int
     total_fixed: int
     avg_health_score: int
 

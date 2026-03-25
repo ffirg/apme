@@ -4,13 +4,29 @@ import {
   PageLayout,
   PageHeader,
   PageDashboard,
-  PageDashboardCount,
   PageDashboardCard,
 } from '@ansible/ansible-ui-framework';
-import { Label } from '@patternfly/react-core';
+import { Bullseye, Flex, Label, Title } from '@patternfly/react-core';
 import { getDashboardSummary, getDashboardRankings } from '../services/api';
 import type { DashboardSummary, ProjectRanking } from '../types/api';
 import { timeAgo } from '../services/format';
+
+function MetricCard({ title, count }: { title: string; count: number }) {
+  return (
+    <PageDashboardCard width="xs" height="xs">
+      <Bullseye>
+        <Flex
+          direction={{ default: 'column' }}
+          spaceItems={{ default: 'spaceItemsSm' }}
+          alignItems={{ default: 'alignItemsCenter' }}
+        >
+          <span style={{ fontSize: 'xxx-large', lineHeight: 1 }}>{count}</span>
+          <Title headingLevel="h3" size="xl">{title}</Title>
+        </Flex>
+      </Bullseye>
+    </PageDashboardCard>
+  );
+}
 
 function HealthBadge({ score }: { score: number }) {
   let color: 'green' | 'orange' | 'red' = 'green';
@@ -51,14 +67,12 @@ export function DashboardPage() {
     <PageLayout>
       <PageHeader title="Dashboard" />
       <PageDashboard>
-        <PageDashboardCount title="Projects" count={summary?.total_projects ?? 0} />
-        <PageDashboardCount title="Total Scans" count={summary?.total_scans ?? 0} />
-        <PageDashboardCount title="Total Violations" count={summary?.total_violations ?? 0} />
-        <PageDashboardCount title="Total Fixed" count={summary?.total_fixed ?? 0} />
-        <PageDashboardCount
-          title="Avg Health"
-          count={summary ? Math.round(summary.avg_health_score) : 0}
-        />
+        <MetricCard title="Projects" count={summary?.total_projects ?? 0} />
+        <MetricCard title="Total Scans" count={summary?.total_scans ?? 0} />
+        <MetricCard title="Current Violations" count={summary?.current_violations ?? 0} />
+        <MetricCard title="Total Violations" count={summary?.total_violations ?? 0} />
+        <MetricCard title="Total Fixed" count={summary?.total_fixed ?? 0} />
+        <MetricCard title="Avg Health" count={summary ? Math.round(summary.avg_health_score) : 0} />
 
         <PageDashboardCard title="Top 10 Cleanest" width="lg" height="md" to="/projects" linkText="View all">
           {loading ? (
