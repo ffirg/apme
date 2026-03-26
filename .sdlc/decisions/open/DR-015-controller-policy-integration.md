@@ -126,12 +126,15 @@ Rationale:
 
 ## Related Artifacts
 
+- [ADR-038](../../adrs/ADR-038-public-data-api.md): Public Data API for Platform Consumers (defines data sharing)
 - [REQ-013](../../specs/REQ-013-opa-policy-inputs/requirement.md): Extended OPA Policy Input Schema
 - [REQ-014](../../specs/REQ-014-policy-permissive-mode/requirement.md): Policy Permissive Mode
 - [ADR-002](../../adrs/ADR-002-opa-rego-policy.md): OPA/Rego policy architecture
 - [AAPRFE-2545](https://redhat.atlassian.net/browse/AAPRFE-2545): Expand OPA inputs
 - [AAPRFE-2258](https://redhat.atlassian.net/browse/AAPRFE-2258): Permissive mode
 - DR-004: AAP Pre-Flight Integration (deferred, broader context)
+
+**Note**: ADR-038 answers the data-sharing question: Controller queries APME's public REST API by project URL. Option D (APME Pre-Flight Only) is the closest fit to the decided architecture. Option A (APME as Controller's single policy engine) would be a significant scope expansion requiring an explicit architectural decision.
 
 ---
 

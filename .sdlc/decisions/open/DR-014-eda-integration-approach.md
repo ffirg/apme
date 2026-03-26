@@ -120,10 +120,13 @@ Rationale:
 
 ## Related Artifacts
 
+- [ADR-038](../../adrs/ADR-038-public-data-api.md): Public Data API for Platform Consumers (defines the pull model)
 - [REQ-012](../../specs/REQ-012-eda-rulebook-validation/requirement.md): EDA Rulebook Validation
 - [REQ-004](../../specs/REQ-004-enterprise-integration/requirement.md): Enterprise Integration
 - [AAPRFE-2642](https://redhat.atlassian.net/browse/AAPRFE-2642): Original customer RFE
 - DR-004: AAP Pre-Flight Integration (deferred, related pattern)
+
+**Note**: ADR-038 defines the data-sharing mechanism. Options A (EDA calls APME during import) and D (standalone CLI/API) are both instances of ADR-038's pull model — EDA would query the Gateway REST API by project URL. The question here is *when* EDA calls APME, not *how* (ADR-038 answers the how).
 
 ---
 

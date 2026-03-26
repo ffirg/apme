@@ -12,6 +12,28 @@
 
 Extend the OPA policy input schema to include parsed playbook content, enabling richer policy enforcement. Currently, AAP's policy enforcement is limited to specific API endpoints. This feature exposes the full playbook AST (tasks, modules, variables, roles) to OPA policies, allowing policies like "block playbooks that use shell module" or "require become: false for production inventories."
 
+## Current OPA Input Schema
+
+APME's OPA validator already passes a parsed AST to Rego rules. Each node includes:
+
+```json
+{
+  "type": "task|play|role|...",
+  "module": "ansible.builtin.copy",
+  "key": "copy",
+  "file": "/path/to/playbook.yml",
+  "line": 42,
+  "column": 5,
+  "content": { /* raw task content */ }
+}
+```
+
+This schema is defined in `src/apme_engine/validators/opa/` and used by existing rules (L002-L025, R118). The current input is **per-node** — policies evaluate one AST node at a time.
+
+## Proposed Extensions
+
+This REQ extends the current schema to support **cross-node** policy evaluation:
+
 ## User Stories
 
 **As a Security Engineer**, I want to write OPA policies that inspect playbook content so that I can enforce security standards at the code level.
@@ -126,6 +148,7 @@ Extend the OPA policy input schema to include parsed playbook content, enabling 
 - [AAPRFE-2545](https://redhat.atlassian.net/browse/AAPRFE-2545) - Original customer RFE
 - [ansible-policy](https://github.com/ansible/ansible-policy) - Reference implementation
 - [ADR-002](../../adrs/ADR-002-opa-rego-policy.md) - OPA/Rego policy architecture
+- [ADR-038](../../adrs/ADR-038-public-data-api.md) - Public Data API for platform consumers
 - DR-015: Controller Policy Integration
 
 ---
