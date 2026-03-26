@@ -26,6 +26,8 @@ from apme_gateway.grpc_reporting.servicer import ReportingServicer
 
 logger = logging.getLogger(__name__)
 
+_GRPC_MAX_MSG = 50 * 1024 * 1024  # 50 MiB — large scan/fix events exceed the 4 MiB default
+
 
 async def _run_grpc(listen: str, stop_event: asyncio.Event) -> None:
     """Start the async gRPC server and block until stop_event is set.
@@ -34,7 +36,12 @@ async def _run_grpc(listen: str, stop_event: asyncio.Event) -> None:
         listen: Bind address (e.g. ``0.0.0.0:50060``).
         stop_event: Signals graceful shutdown.
     """
-    server = grpc.aio.server()
+    server = grpc.aio.server(
+        options=[
+            ("grpc.max_receive_message_length", _GRPC_MAX_MSG),
+            ("grpc.max_send_message_length", _GRPC_MAX_MSG),
+        ],
+    )
     reporting_pb2_grpc.add_ReportingServicer_to_server(ReportingServicer(), server)  # type: ignore[no-untyped-call]
 
     from grpc_health.v1 import health, health_pb2, health_pb2_grpc
