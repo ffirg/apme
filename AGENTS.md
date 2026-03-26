@@ -56,6 +56,14 @@ one needs to change, write an ADR first.
     exists for backward-compatible engine-aligned clients only. New features
     target `FixSession`.
 
+11. **Built-in validator bundles are closed** (ADR-042). No volume-mounted rules,
+    no configurable rule directories, no external Rego files injected into the
+    OPA bundle, no custom Python rule classes loaded into Native. The built-in
+    rule set ships with the image and is the only rule set the built-in
+    validators execute. Custom/organization-specific rules go through the
+    **Plugin service** (ADR-042) as a separate container — never mixed into
+    built-in validators.
+
 ## Agent Roles
 
 ### 1. Spec Writer Agent
