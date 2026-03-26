@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Open (reframed per ADR-038)
 
 ## Raised By
 
@@ -14,23 +14,28 @@ Architecture
 
 ## Priority
 
-High
+Medium (narrowed by ADR-038)
 
 ---
 
 ## Question
 
-How should APME feed deprecated module detection data into Automation Analytics for reporting?
+How does Controller/AA consume the ADR-038 public API for deprecated module reporting?
 
 ## Context
 
-Customer RFE [AAPRFE-1607](https://redhat.atlassian.net/browse/AAPRFE-1607) requests deprecated module reports in Automation Analytics. The data already exists in job logs ("this module is deprecated, please upgrade it"), but requires structured collection and reporting.
+**ADR-038 (Public Data API)** defines how platform consumers access APME data:
+- **Pull model**: Consumers query the Gateway REST API by project URL
+- **Webhook notifications**: Consumers subscribe to scan-complete events
+- **Controller as bridge**: Controller knows the project SCM URL, queries APME for health/violations, and AA gets the data transitively through Controller's existing telemetry
+
+This DR is now a **specific consumer use case** within the ADR-038 architecture. The original question ("how does APME send data to AA?") is answered by ADR-038: consumers pull from the public REST API.
+
+The narrower question is: **What AA-specific behaviors are needed beyond the standard ADR-038 pattern?**
 
 APME already detects deprecated modules via:
 - **L004**: Deprecated module usage
 - **M001-M004**: Modernization rules for outdated patterns
-
-The question is how to get this data from APME into Automation Analytics.
 
 ## Impact of Not Deciding
 
@@ -40,101 +45,74 @@ The question is how to get this data from APME into Automation Analytics.
 
 ---
 
-## Options Considered
+## Options (Post-ADR-038)
 
-### Option A: AAP Event-Driven Integration
+ADR-038 collapses the original options (event-driven, direct API, Insights client, export-only) into a single pattern: **Controller queries APME's public REST API**.
 
-**Description**: APME runs as part of AAP job execution (pre-flight or execution environment). Results flow through AAP's existing telemetry to Automation Analytics.
+The remaining questions are AA-specific:
 
-**Pros**:
-- Uses existing AAP → AA data pipeline
-- Job context (job ID, template, inventory) automatically available
-- Minimal new infrastructure
+### Option A: Controller Includes APME Data in Existing AA Telemetry
 
-**Cons**:
-- Requires AAP integration work (EE, callback plugin, or pre-flight hook)
-- Dependent on AAP release cycle
-- May require changes to AA schema
-
-**Effort**: High
-
-### Option B: Direct AA API Integration
-
-**Description**: APME sends scan results directly to Automation Analytics via API.
+**Description**: Controller queries APME for project health/violations and includes the deprecated module data in its existing telemetry to AA.
 
 **Pros**:
-- Decoupled from AAP release cycle
-- Can work for standalone scanning (CI/CD, local)
-- Full control over data format
+- Uses existing Controller → AA data pipeline
+- No AA API changes needed
+- APME data automatically correlated with job context
 
 **Cons**:
-- Requires AA API access and schema changes
-- Need to correlate with AAP job metadata separately
-- Additional authentication/authorization flow
+- Requires Controller code to query APME and include data
+- AA dashboard needs to visualize new data fields
 
-**Effort**: Medium
+**Effort**: Medium (Controller-side)
 
-### Option C: Insights Client Extension
+### Option B: AA Directly Queries APME (Bypass Controller)
 
-**Description**: Extend the Insights client (already on AAP) to collect APME scan results and ship to AA.
+**Description**: AA subscribes to APME webhooks or periodically pulls project health data directly.
 
 **Pros**:
-- Leverages existing Insights infrastructure
-- Already handles authentication and transport
-- Familiar pattern for RHEL/AAP customers
+- Decoupled from Controller
+- AA controls the polling/refresh cadence
 
 **Cons**:
-- Requires Insights client changes
-- May have data freshness limitations (batch upload)
-- Additional dependency
+- Requires AA to correlate project URLs with Controller job metadata
+- Additional service-to-service auth
+- Duplicates ADR-038 consumer pattern
 
-**Effort**: Medium
+**Effort**: High (AA-side)
 
-### Option D: Export-Only (No Direct Integration)
+### Option C: Dashboard-Only (No AA Integration)
 
-**Description**: APME generates structured reports (JSON/SARIF) that customers manually import or feed into their own pipelines to AA.
+**Description**: APME provides deprecated module data via its own dashboard (REQ-008/REQ-010 scope). Customers who want AA reports can export and import.
 
 **Pros**:
-- No external dependencies
-- Works today with current APME capabilities
-- Customer controls the integration
+- No cross-product integration needed
+- Works with ADR-038's existing public API
+- Customers already have export capability
 
 **Cons**:
-- No automatic flow to AA
-- Requires customer implementation effort
-- Doesn't fully address RFE request
+- Doesn't address RFE request for AA-native reports
+- Manual workflow for customers
 
 **Effort**: Low
-
-### Option E: Do Nothing / Defer
-
-**Description**: Leave undefined for now, revisit after v1 CLI stabilizes.
-
-**Pros**:
-- Focus on core scanning functionality
-- Avoid premature integration decisions
-- AA roadmap may clarify integration patterns (2H 2026 per Jira comments)
-
-**Cons**:
-- Customer RFE remains unaddressed
-- May miss alignment with AA roadmap work
 
 ---
 
 ## Recommendation
 
-**Option D (Export-Only) for v1, with Option A planning for v2.**
+**Option A (Controller includes APME data in AA telemetry)**.
 
 Rationale:
-1. v1 focus is CLI scanning - export capability exists (JSON, SARIF)
-2. Jira comments indicate AA reporting capabilities coming in 2H 2026
-3. Option A (event-driven) aligns best long-term but requires AAP integration
-4. We should coordinate with AA team on schema before committing
+1. Aligns with ADR-038's "Controller as bridge" pattern
+2. Controller already has job context that AA needs for correlation
+3. AA team can add dashboard visualizations without API changes
+4. Consistent with how other Controller data flows to AA
 
 ---
 
 ## Related Artifacts
 
+- [ADR-038](../../adrs/ADR-038-public-data-api.md): Public Data API for Platform Consumers (defines pull model)
 - [REQ-011](../../specs/REQ-011-aa-deprecated-reporting/requirement.md): Automation Analytics Deprecated Module Reporting
 - [DR-004](../closed/deferred/DR-004-aap-integration.md): AAP Pre-Flight Integration (deferred)
 - [REQ-004](../../specs/REQ-004-enterprise-integration/requirement.md): Enterprise Integration
@@ -147,7 +125,9 @@ Rationale:
 | Date | Participant | Input |
 |------|-------------|-------|
 | 2026-03-25 | Claude | Initial DR created from AAPRFE-1607 analysis |
-| | | AA team comment on Jira suggests 2H 2026 reporting roadmap |
+| 2026-03-25 | — | AA team comment on Jira suggests 2H 2026 reporting roadmap |
+| 2026-03-26 | cidrblock | ADR-038 defines public data API; reframe DR to narrower question |
+| 2026-03-26 | Claude | Reframed per ADR-038; updated options to post-ADR-038 choices |
 
 ---
 

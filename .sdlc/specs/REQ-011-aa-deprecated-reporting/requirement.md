@@ -11,6 +11,8 @@
 
 Provide deprecated module detection data to Automation Analytics so customers can generate reports showing which Ansible jobs use deprecated modules. This enables proactive upgrade planning before ansible-core version migrations.
 
+**Architecture**: This REQ is a specific consumer use case of ADR-038 (Public Data API). Deprecated module data is available via the Gateway REST API; Controller queries APME by project URL and includes the data in its telemetry to AA.
+
 ## User Stories
 
 **As an AAP Administrator**, I want to see a report of all jobs using deprecated modules so that I can plan remediation before upgrading ansible-core.
@@ -87,11 +89,12 @@ Provide deprecated module detection data to Automation Analytics so customers ca
 
 - REQ-001: Core Scanning Engine (L004, M001-M004 rules)
 - REQ-004: Enterprise Integration (AAP/AA connectivity)
+- **ADR-038**: Public Data API (defines how Controller queries APME)
 
 ### External
 
-- Automation Analytics API (for data ingestion)
-- AAP job event stream or callback mechanism
+- Controller: Queries APME and includes data in AA telemetry
+- Automation Analytics: Dashboard/report visualization
 
 ## Non-Functional Requirements
 
@@ -110,6 +113,8 @@ Provide deprecated module detection data to Automation Analytics so customers ca
 
 - [AAPRFE-1607](https://redhat.atlassian.net/browse/AAPRFE-1607) - Original customer RFE
 - [ADR-008](../../adrs/ADR-008-rule-id-conventions.md) - Rule ID conventions (L004 = deprecated module)
+- [ADR-038](../../adrs/ADR-038-public-data-api.md) - Public Data API (defines integration pattern)
+- [DR-013](../../decisions/open/DR-013-aa-integration-approach.md) - AA Integration Approach (reframed per ADR-038)
 - [DR-004](../../decisions/closed/deferred/DR-004-aap-integration.md) - AAP Pre-Flight Integration (deferred)
 
 ---
