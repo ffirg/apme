@@ -56,6 +56,8 @@ Add static validation rules for Event-Driven Ansible (EDA) rulebooks. Currently,
 | E004 | rulebook-source-plugin | warning | Validates source plugin configuration |
 | E005 | rulebook-condition-syntax | error | Validates condition expression syntax |
 
+**Note**: The E-series rule IDs are proposed pending an ADR-008 amendment. ADR-008 currently defines L/M/R/P/SEC categories. Adding E (EDA) requires updating ADR-008 to include the new category.
+
 ## Inputs / Outputs
 
 ### Inputs

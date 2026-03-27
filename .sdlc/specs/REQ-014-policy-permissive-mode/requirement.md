@@ -12,6 +12,8 @@
 
 Add a "permissive" (warn-only) mode for policy enforcement, similar to SELinux's permissive mode. When enabled, policy violations are logged and reported but do not block job execution. This enables gradual policy rollout, allowing users to see what would be blocked without disrupting production workflows.
 
+**Scope clarification**: APME provides policy analysis and advisory results. Enforcement (blocking/allowing jobs) happens at runtime in AAP Controller. APME also supports CI/CD environments that integrate with AAP, where policy checks can gate deployments before content reaches Controller.
+
 ## User Stories
 
 **As a Platform Administrator**, I want to test new policies in permissive mode so that I can identify what would be blocked before enforcing the policy.
@@ -25,14 +27,14 @@ Add a "permissive" (warn-only) mode for policy enforcement, similar to SELinux's
 ### Scenario: Permissive Mode Enabled
 
 - **GIVEN**: A policy with `mode: permissive`
-- **WHEN**: A job violates the policy
-- **THEN**: The job is allowed to run AND a warning is logged AND the user sees a notification
+- **WHEN**: Content violates the policy during APME scan
+- **THEN**: APME reports advisory violations (warnings) AND AAP/CI decides whether to proceed
 
 ### Scenario: Enforcing Mode (Default)
 
 - **GIVEN**: A policy with `mode: enforcing` (or no mode specified)
-- **WHEN**: A job violates the policy
-- **THEN**: The job is blocked with an error message
+- **WHEN**: Content violates the policy during APME scan
+- **THEN**: APME reports blocking violations AND AAP/CI can use this to block the job/deployment
 
 ### Scenario: Mode Transition
 

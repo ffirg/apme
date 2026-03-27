@@ -31,7 +31,7 @@ Many RFEs in this document note "integration gaps" — the gap between APME's de
 
 ---
 
-## Partial Coverage (6 RFEs)
+## Partial Coverage (4 RFEs)
 
 These RFEs involve capabilities where APME provides detection, but platform integration is needed to fully address the request. ADR-038 defines the integration mechanism.
 
@@ -61,7 +61,7 @@ These RFEs are fully addressed by existing APME capabilities.
 | **Status** | Closed |
 | **Classification** | **Covered** |
 | **APME Rules** | **L057** (syntax validation), **L058-L059** (argspec validation), **M001/L026** (FQCN), plus 100+ lint rules |
-| **How APME Addresses** | `apme scan` provides comprehensive playbook validation: YAML syntax, deprecated modules, undefined variables, module argument validation, best practices. This is exactly what the RFE requests. |
+| **How APME Addresses** | `apme-scan check` provides comprehensive playbook validation: YAML syntax, deprecated modules, undefined variables, module argument validation, best practices. This is exactly what the RFE requests. |
 | **Gap** | None — APME is the implementation of this request |
 | **Action** | Close with reference to APME |
 
@@ -237,18 +237,42 @@ These RFEs will be addressed by planned APME features.
 
 ---
 
-## Summary: Covered RFEs
+## Summary: RFE Coverage by Status
 
-| RFE | APME Rules | Status | Action |
-|-----|-----------|--------|--------|
-| AAPRFE-2515 | M002, M004, L004 | Covered | Link (note static vs runtime) |
-| AAPRFE-2472 | L057, L058-L059, L002 | Covered | Close |
-| AAPRFE-2313 | L-series (all) | Covered | Link (UI integration separate) |
-| AAPRFE-2374 | (upstream) | Covered | Track upstream |
-| AAPRFE-2059 | (config) | Covered | Close |
-| AAPRFE-1628 | M005-M013 | Covered | Link |
-| AAPRFE-1607 | M002, M004, L004 | Covered | REQ-011/DR-013 exist |
-| AAPRFE-2376 | OPA validator | Covered | Close (docs task optional) |
+This section consolidates all RFEs by their actual classification status.
+
+### Fully Covered (Detection Implemented)
+
+| RFE | APME Rules | Action |
+|-----|-----------|--------|
+| AAPRFE-2472 | L057, L058-L059, M001/L026 | Close with APME reference |
+| AAPRFE-2376 | OPA validator docs | Close |
+
+### Partial (Detection Yes, Integration via ADR-038)
+
+| RFE | APME Rules | Gap | Action |
+|-----|-----------|-----|--------|
+| AAPRFE-2515 | M002, M004, L004 | UI surfacing | ADR-038 integration |
+| AAPRFE-2313 | L-series | UI surfacing | ADR-038 integration |
+| AAPRFE-1607 | M002, M004, L004 | AA integration | REQ-011/DR-013 + ADR-038 |
+
+### Tracked Upstream
+
+| RFE | Issue | Action |
+|-----|-------|--------|
+| AAPRFE-2374 | ansible-lint #4142 | Track upstream; not APME concern |
+
+### Not Covered (Feature Gap)
+
+| RFE | Gap | Action |
+|-----|-----|--------|
+| AAPRFE-2059 | No rule exclusion config | Add to roadmap |
+
+### Roadmap (Planned)
+
+| RFE | APME Feature | Timeline |
+|-----|-------------|----------|
+| AAPRFE-1628 | M005-M013 (6/9 done) | In progress |
 
 ## Summary: Roadmap RFEs
 
@@ -383,7 +407,7 @@ These RFEs don't fit APME's mission (static code analysis). Keep in AAP backlog.
 | AAPRFE-2472 | L057, L058-L059, M001/L026 | Close with APME reference |
 | AAPRFE-2376 | OPA validator docs | Close |
 
-### Partial (4 RFEs)
+### Partial (3 RFEs)
 
 | RFE | APME Rules | Gap | Action |
 |-----|-----------|-----|--------|

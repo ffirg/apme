@@ -134,7 +134,7 @@ Rationale:
 - [AAPRFE-2258](https://redhat.atlassian.net/browse/AAPRFE-2258): Permissive mode
 - DR-004: AAP Pre-Flight Integration (deferred, broader context)
 
-**Note**: ADR-038 answers the data-sharing question: Controller queries APME's public REST API by project URL. Option D (APME Pre-Flight Only) is the closest fit to the decided architecture. Option A (APME as Controller's single policy engine) would be a significant scope expansion requiring an explicit architectural decision.
+**Note**: ADR-038 answers the data-sharing question: Controller queries APME's public REST API by project URL. The "decided architecture" refers to ADR-038's pull model — APME exposes data, consumers query it. This most closely aligns with **Option D** (APME Pre-Flight Only) for the near term, since APME provides analysis and Controller/AAP decides how to consume it. The recommendation above (**Option B**) describes a tighter integration that would require Controller changes; this is a longer-term possibility pending Controller team alignment.
 
 ---
 
