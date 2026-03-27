@@ -772,6 +772,9 @@ class AbbenayProvider:
 
         Returns:
             Tuple of (patches or None on failure, skipped violations).
+
+        Raises:
+            Exception: If the Abbenay API call fails (e.g. network, credits).
         """
         file_path = str(violations[0].get("file", "")) if violations else ""
         prompt = _build_batch_prompt(
@@ -809,7 +812,7 @@ class AbbenayProvider:
                 len(violations),
                 file_path,
             )
-            return None, []
+            raise
 
         if not response_text.strip():
             logger.warning(
@@ -854,6 +857,9 @@ class AbbenayProvider:
 
         Returns:
             Tuple of (patches or None on failure, skipped violations).
+
+        Raises:
+            Exception: If the Abbenay API call fails (e.g. network, credits).
         """
         prompt = _build_unit_prompt(
             violations,
@@ -894,7 +900,7 @@ class AbbenayProvider:
                 line_end,
                 file_path,
             )
-            return None, []
+            raise
 
         if not response_text.strip():
             return None, []

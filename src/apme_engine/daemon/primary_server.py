@@ -420,7 +420,7 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         collection_specs: list[str] | None = None,
         include_scandata: bool = True,
         session_id: str = "",
-        progress_callback: Callable[[str, str, float], None] | None = None,
+        progress_callback: Callable[[str, str, float, int], None] | None = None,
     ) -> tuple[
         list[ViolationDict],
         ScanDiagnostics | None,
@@ -572,7 +572,7 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         if task_coros:
             num_validators = len(task_coros)
             if _pcb:
-                _pcb("scan", f"Dispatching to {num_validators} validators...", 0.0)
+                _pcb("scan", f"Dispatching to {num_validators} validators...", 0.0, 2)
             logger.info("Fan-out: dispatching to %d validators (req=%s)", num_validators, scan_id)
             fan_t0 = time.monotonic()
 
@@ -588,13 +588,13 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
                 except BaseException as exc:
                     validators_done += 1
                     if _pcb:
-                        _pcb("scan", f"{name.title()}: error: {exc}", validators_done / num_validators)
+                        _pcb("scan", f"{name.title()}: error: {exc}", validators_done / num_validators, 4)
                     raise
                 else:
                     validators_done += 1
                     if _pcb:
                         count = len(result.violations)
-                        _pcb("scan", f"{name.title()}: {count} findings", validators_done / num_validators)
+                        _pcb("scan", f"{name.title()}: {count} findings", validators_done / num_validators, 2)
                     return name, result
 
             named_results = await asyncio.gather(
@@ -1046,10 +1046,10 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         _HEARTBEAT_INTERVAL = 15
         progress_queue: asyncio.Queue[ProgressUpdate | None] = asyncio.Queue()
 
-        def _progress_callback(phase: str, message: str, fraction: float = 0.0) -> None:
+        def _progress_callback(phase: str, message: str, fraction: float = 0.0, level: int = 2) -> None:
             loop.call_soon_threadsafe(
                 progress_queue.put_nowait,
-                ProgressUpdate(message=message, phase=phase, progress=fraction, level=2),
+                ProgressUpdate(message=message, phase=phase, progress=fraction, level=level),
             )
 
         manifest_captured = False
