@@ -47,12 +47,12 @@ The **Primary orchestrator** is the sole venv authority (single writer). It call
 
 ```bash
 # Ephemeral (default, backward compatible)
-apme scan playbook.yml
+apme check playbook.yml
 
-# Named session (reusable, VS Code extension use case)
-apme scan playbook.yml --session my-project --session-ttl 7200
+# Named session (reusable, VS Code extension use case) — planned
+apme check playbook.yml --session my-project --session-ttl 7200
 
-# Session management
+# Session management — planned
 apme session list
 apme session info my-project
 apme session delete my-project
