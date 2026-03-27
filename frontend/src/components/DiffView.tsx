@@ -14,8 +14,8 @@ function classifyLine(line: string): 'add' | 'remove' | 'header' | 'context' {
 }
 
 const lineStyles: Record<string, React.CSSProperties> = {
-  add: { backgroundColor: 'var(--pf-t--global--color--status--success--default)', color: '#fff' },
-  remove: { backgroundColor: 'var(--pf-t--global--color--status--danger--default)', color: '#fff' },
+  add: { backgroundColor: 'rgba(46, 160, 67, 0.15)', color: 'inherit' },
+  remove: { backgroundColor: 'rgba(248, 81, 73, 0.15)', color: 'inherit' },
   header: { color: 'var(--pf-t--global--color--status--info--default)', fontWeight: 600 },
   context: {},
 };
