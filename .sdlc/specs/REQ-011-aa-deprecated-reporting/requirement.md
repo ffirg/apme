@@ -32,7 +32,7 @@ Provide deprecated module detection data to Automation Analytics so customers ca
 ### Scenario: Data Available in Automation Analytics
 
 - **GIVEN**: APME has scanned playbooks with deprecated modules
-- **WHEN**: The scan results are reported to Automation Analytics
+- **WHEN**: Scan results are made available to Automation Analytics (mechanism TBD — how APME services integrate with AAP is under discussion)
 - **THEN**: The deprecated module data is available for dashboard/report generation
 
 ### Scenario: Report Generation
@@ -64,7 +64,7 @@ Provide deprecated module detection data to Automation Analytics so customers ca
 1. AAP job executes playbook
 2. APME scans playbook (pre-flight or post-run)
 3. L004/M001-M004 violations detected for deprecated modules
-4. Scan results sent to Automation Analytics
+4. Scan results made available for centralized metrics and reporting (integration mechanism TBD — see DR-013)
 5. User views deprecation report in AA dashboard
 6. Report shows jobs, modules, and remediation guidance
 
@@ -80,7 +80,6 @@ Provide deprecated module detection data to Automation Analytics so customers ca
 
 | Error | Cause | Response |
 |-------|-------|----------|
-| AA unavailable | Network/service issue | Queue data for retry |
 | Invalid scan data | Malformed response | Log error, skip record |
 
 ## Dependencies
