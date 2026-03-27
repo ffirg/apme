@@ -1,0 +1,40 @@
+import type React from 'react';
+
+export interface DiffViewProps {
+  diff: string;
+  className?: string;
+}
+
+function classifyLine(line: string): 'add' | 'remove' | 'header' | 'context' {
+  if (line.startsWith('+++') || line.startsWith('---')) return 'header';
+  if (line.startsWith('@@')) return 'header';
+  if (line.startsWith('+')) return 'add';
+  if (line.startsWith('-')) return 'remove';
+  return 'context';
+}
+
+const lineStyles: Record<string, React.CSSProperties> = {
+  add: { backgroundColor: 'var(--pf-t--global--color--status--success--default)', color: '#fff' },
+  remove: { backgroundColor: 'var(--pf-t--global--color--status--danger--default)', color: '#fff' },
+  header: { color: 'var(--pf-t--global--color--status--info--default)', fontWeight: 600 },
+  context: {},
+};
+
+export function DiffView({ diff, className }: DiffViewProps) {
+  if (!diff) return null;
+
+  const lines = diff.split('\n');
+
+  return (
+    <pre className={className} style={{ margin: 0, fontSize: '0.85em', lineHeight: 1.5, overflow: 'auto' }}>
+      {lines.map((line, i) => {
+        const kind = classifyLine(line);
+        return (
+          <div key={i} style={{ ...lineStyles[kind], paddingLeft: 4, paddingRight: 4 }}>
+            {line || '\u00A0'}
+          </div>
+        );
+      })}
+    </pre>
+  );
+}

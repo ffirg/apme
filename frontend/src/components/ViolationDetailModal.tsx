@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import {
+  Button,
   Modal,
-  ModalHeader,
   ModalBody,
+  ModalFooter,
+  ModalHeader,
   Tab,
   Tabs,
   TabTitleText,
 } from '@patternfly/react-core';
 import { PageDetails, PageDetail } from '@ansible/ansible-ui-framework';
+import { DiffView } from './DiffView';
+import { FeedbackModal, type FeedbackPayload } from './FeedbackModal';
 import { severityClass, severityLabel, bareRuleId, ruleSource } from './severity';
 
 function tierLabel(rc: number): string {
@@ -26,6 +30,7 @@ export interface ViolationRecord {
   line: number | null;
   path: string;
   remediation_class: number;
+  validator_source?: string;
 }
 
 interface ViolationDetailModalProps {
@@ -35,10 +40,13 @@ interface ViolationDetailModalProps {
   diff?: string;
   getRuleDescription?: (ruleId: string) => string | undefined;
   mergedViolations?: ViolationRecord[];
+  scanId?: string;
+  feedbackEnabled?: boolean;
 }
 
-export function ViolationDetailModal({ isOpen, onClose, violation, diff, getRuleDescription, mergedViolations }: ViolationDetailModalProps) {
+export function ViolationDetailModal({ isOpen, onClose, violation, diff, getRuleDescription, mergedViolations, scanId, feedbackEnabled }: ViolationDetailModalProps) {
   const [activeTab, setActiveTab] = useState(0);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const ruleDesc = getRuleDescription?.(violation.rule_id);
   const cls = severityClass(violation.level, violation.rule_id);
   const source = ruleSource(violation.rule_id);
@@ -132,7 +140,7 @@ export function ViolationDetailModal({ isOpen, onClose, violation, diff, getRule
           {diff ? (
             <Tab eventKey={1} title={<TabTitleText>Diff</TabTitleText>} aria-label="Diff tab">
               <div className="apme-modal-diff">
-                <pre>{diff}</pre>
+                <DiffView diff={diff} />
               </div>
             </Tab>
           ) : null}
@@ -143,6 +151,27 @@ export function ViolationDetailModal({ isOpen, onClose, violation, diff, getRule
           </Tab>
         </Tabs>
       </ModalBody>
+      {feedbackEnabled && (
+        <ModalFooter>
+          <Button variant="link" onClick={() => setFeedbackOpen(true)}>Report Issue</Button>
+        </ModalFooter>
+      )}
+      <FeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        prefill={{
+          type: 'false_positive',
+          rule_id: violation.rule_id,
+          source: violation.validator_source || ruleSource(violation.rule_id) || '',
+          file: violation.file,
+          scan_id: scanId ?? '',
+          context: {
+            violation_message: violation.message,
+            ai_proposal_diff: diff ?? '',
+            ai_explanation: '',
+          },
+        } satisfies Partial<FeedbackPayload>}
+      />
     </Modal>
   );
 }

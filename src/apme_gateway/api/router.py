@@ -1116,6 +1116,7 @@ async def project_operate_ws(
                         "phase": prog.phase or "processing",
                         "message": prog.message or "",
                         "progress": prog.progress,
+                        "level": prog.level,
                     }
                 )
             elif kind == "proposals":
