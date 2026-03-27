@@ -1046,10 +1046,10 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         _HEARTBEAT_INTERVAL = 15
         progress_queue: asyncio.Queue[ProgressUpdate | None] = asyncio.Queue()
 
-        def _progress_callback(phase: str, message: str, fraction: float = 0.0) -> None:
+        def _progress_callback(phase: str, message: str, fraction: float = 0.0, level: int = 2) -> None:
             loop.call_soon_threadsafe(
                 progress_queue.put_nowait,
-                ProgressUpdate(message=message, phase=phase, progress=fraction, level=2),
+                ProgressUpdate(message=message, phase=phase, progress=fraction, level=level),
             )
 
         manifest_captured = False

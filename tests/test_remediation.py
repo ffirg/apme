@@ -1860,10 +1860,10 @@ class TestRemediationProgress:
                 return [{"rule_id": "L021", "file": str(playbook), "line": 1}]
             return []
 
-        progress_messages: list[tuple[str, str, float]] = []
+        progress_messages: list[tuple[str, str, float, int]] = []
 
-        def on_progress(phase: str, message: str, fraction: float = 0.0) -> None:
-            progress_messages.append((phase, message, fraction))
+        def on_progress(phase: str, message: str, fraction: float = 0.0, level: int = 2) -> None:
+            progress_messages.append((phase, message, fraction, level))
 
         reg = TransformRegistry()
         reg.register("L021", structured=fix_missing_mode)
@@ -1877,10 +1877,10 @@ class TestRemediationProgress:
         report = engine.remediate([str(playbook)], apply=True)
         assert report.fixed >= 1
 
-        phases = [p for p, _, _ in progress_messages]
+        phases = [p for p, _, _, _ in progress_messages]
         assert "tier1" in phases, f"Expected tier1 phase in: {progress_messages}"
 
-        messages = [m for _, m, _ in progress_messages]
+        messages = [m for _, m, _, _ in progress_messages]
         assert any("Pass 1" in m for m in messages), f"Expected pass 1 message in: {messages}"
         assert any("transform" in m.lower() for m in messages), f"Expected transform message in: {messages}"
 

@@ -88,11 +88,12 @@ class FixReport:
 
 ScanFn = Callable[[list[str]], list[ViolationDict]]
 
-ProgressCallback = Callable[[str, str, float], None]
-"""``(phase, message, fraction)`` — thread-safe progress reporter.
+ProgressCallback = Callable[[str, str, float, int], None]
+"""``(phase, message, fraction, level)`` — thread-safe progress reporter.
 
 *phase* groups messages (``"tier1"``, ``"scan"``, ``"ai"``).
 *fraction* is 0.0–1.0 (optional, 0.0 when unknown).
+*level* mirrors ``LogLevel`` from common.proto: 1=DEBUG, 2=INFO, 3=WARNING, 4=ERROR.
 """
 
 
@@ -137,17 +138,24 @@ class RemediationEngine:
         self._ai_provider = ai_provider
         self._progress_cb = progress_callback
 
-    def _progress(self, phase: str, message: str, fraction: float = 0.0) -> None:
+    def _progress(
+        self,
+        phase: str,
+        message: str,
+        fraction: float = 0.0,
+        level: int = 2,
+    ) -> None:
         """Report progress if a callback is registered.
 
         Args:
             phase: Progress phase (``"tier1"``, ``"scan"``, ``"ai"``).
             message: Human-readable status message.
             fraction: Optional 0.0–1.0 completion fraction.
+            level: LogLevel (1=DEBUG, 2=INFO, 3=WARNING, 4=ERROR).
         """
         if self._progress_cb is not None:
             try:
-                self._progress_cb(phase, message, fraction)
+                self._progress_cb(phase, message, fraction, level)
             except Exception:
                 logger.warning("Progress callback raised; ignoring error", exc_info=True)
 
@@ -341,6 +349,11 @@ class RemediationEngine:
 
             if new_fixable >= prev_count:
                 logger.warning("Remediation: pass %d oscillation (%d fixable >= %d)", pass_num, new_fixable, prev_count)
+                self._progress(
+                    "tier1",
+                    f"Oscillation detected at pass {pass_num}, stopping",
+                    level=3,
+                )
                 oscillation = True
                 for v in new_tier1:
                     v["remediation_class"] = RemediationClass.AI_CANDIDATE
@@ -463,7 +476,12 @@ class RemediationEngine:
             list[AIProposal]: Validated proposals.
         """
         if hasattr(self._ai_provider, "reconnect"):
-            await self._ai_provider.reconnect()  # type: ignore[union-attr]
+            try:
+                await self._ai_provider.reconnect()  # type: ignore[union-attr]
+            except Exception:
+                logger.exception("AI provider reconnect failed")
+                self._progress("ai", "AI provider unavailable, skipping Tier 2 escalation", level=4)
+                return []
 
         by_file: dict[str, list[ViolationDict]] = defaultdict(list)
         for v in violations:
@@ -569,6 +587,11 @@ class RemediationEngine:
             unit = units_with_violations[i]
             if isinstance(result, BaseException):
                 logger.error("Unit L%d-%d: %s", unit.line_start, unit.line_end, result)
+                self._progress(
+                    "ai",
+                    f"AI error ({Path(file_path).name} L{unit.line_start}-{unit.line_end}): {result}",
+                    level=4,
+                )
                 continue
             patches, skipped = result
             if not patches:
@@ -587,6 +610,11 @@ class RemediationEngine:
                     unit.line_start,
                     unit.line_end,
                     file_content.count(unit.snippet),
+                )
+                self._progress(
+                    "ai",
+                    f"AI: skipped ambiguous unit in {Path(file_path).name} (L{unit.line_start}-{unit.line_end})",
+                    level=3,
                 )
                 for v in unit.violations:
                     v["remediation_resolution"] = RemediationResolution.MANUAL
