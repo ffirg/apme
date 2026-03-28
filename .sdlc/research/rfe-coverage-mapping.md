@@ -31,24 +31,6 @@ Many RFEs in this document note "integration gaps" — the gap between APME's de
 
 ---
 
-## Partial Coverage (4 RFEs)
-
-These RFEs involve capabilities where APME provides detection, but platform integration is needed to fully address the request. ADR-038 defines the integration mechanism.
-
-### AAPRFE-2515: Deprecation Warning Search
-
-| Field | Value |
-|-------|-------|
-| **Summary** | Enable Searching for jobs that include deprecation warnings |
-| **Status** | Backlog |
-| **Classification** | **Partial** |
-| **APME Rules** | **M002** (deprecated modules), **M004** (tombstoned modules), **L004** (OPA deprecated check) |
-| **Detection** | ✅ APME detects deprecated modules at scan time via L004 (OPA static list), M002/M004 (ansible-core runtime introspection) |
-| **Gap** | RFE asks for runtime job search in Controller UI. APME provides detection; surfacing in Controller requires ADR-038 integration. |
-| **Action** | Link to APME for detection; note ADR-038 for integration |
-
----
-
 ## Covered by APME (2 RFEs)
 
 These RFEs are fully addressed by existing APME capabilities.
@@ -81,7 +63,23 @@ These RFEs are fully addressed by existing APME capabilities.
 
 ---
 
-## Partial Coverage (continued)
+## Partial Coverage (3 RFEs)
+
+These RFEs involve capabilities where APME provides detection, but platform integration is needed to fully address the request. ADR-038 defines the integration mechanism.
+
+### AAPRFE-2515: Deprecation Warning Search
+
+| Field | Value |
+|-------|-------|
+| **Summary** | Enable Searching for jobs that include deprecation warnings |
+| **Status** | Backlog |
+| **Classification** | **Partial** |
+| **APME Rules** | **M002** (deprecated modules), **M004** (tombstoned modules), **L004** (OPA deprecated check) |
+| **Detection** | ✅ APME detects deprecated modules at scan time via L004 (OPA static list), M002/M004 (ansible-core runtime introspection) |
+| **Gap** | RFE asks for runtime job search in Controller UI. APME provides detection; surfacing in Controller requires ADR-038 integration. |
+| **Action** | Link to APME for detection; note ADR-038 for integration |
+
+---
 
 ### AAPRFE-2313: Linting Problems Noted in UI
 

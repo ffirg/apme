@@ -16,6 +16,51 @@
 
 Ansible Policy & Modernization Engine — a multi-validator static analysis platform for Ansible content. It parses playbooks, roles, collections, and task files into a structured hierarchy, then fans validation out in parallel across four independent backends (OPA/Rego, native Python, Ansible-runtime, and Gitleaks) to produce a single, unified list of violations.
 
+## What APME is
+
+APME is a **static and semi-static analysis tool** for Ansible content. It reads your YAML, reasons about structure and module usage, and reports what it finds — without running tasks or executing against target hosts.
+
+It answers questions like:
+
+- Will this playbook **parse** on ansible-core 2.19?
+- Are any modules I use **removed, deprecated, or redirected**?
+- Do my module arguments **match the argspec** for the version I'm targeting?
+- Does my code follow **organizational style and security policies**?
+- Are there **hardcoded credentials** in my project?
+- What **migration work** is required to move from one ansible-core version to another?
+
+## What APME is not
+
+APME is not a test framework, a deployment tool, or a runtime verification system.
+
+It cannot tell you whether a playbook will **achieve its desired outcome** on your infrastructure. A playbook's intended outcome — packages installed, services configured, files in the right state — depends on target host state, inventory variables, network reachability, external APIs, and runtime facts that only exist during execution. No static analysis tool can evaluate those.
+
+APME also cannot guarantee a playbook will **run successfully**, even if it reports zero violations. A clean APME scan means no *known* incompatibilities were detected — not that every runtime path will succeed.
+
+## Where APME fits
+
+APME provides a **compatibility and quality floor**. It catches the preventable mistakes — the removed module, the broken `include:`, the wrong argument name, the committed secret — before they reach staging or production.
+
+| When discovered | Cost |
+|----------------|------|
+| APME scan in CI | Developer fixes it in their branch |
+| Syntax check in staging | Deployment blocked, team context-switches |
+| Production run fails | Outage, incident response, postmortem |
+
+For organizations managing hundreds of roles and collections across ansible-core version upgrades, this shift-left is the difference between a planned migration and an emergency one.
+
+**What still requires execution-time tools:**
+
+| Concern | Tool |
+|---------|------|
+| Does the playbook produce the correct end state? | Molecule, integration tests |
+| Is the playbook idempotent (safe to run twice)? | `--check` mode, Molecule converge+idempotence |
+| Do templates render correctly with real variables? | Integration tests against test inventory |
+| Does the playbook handle failure paths gracefully? | Molecule verify, side-effect testing |
+| Does it work with my specific inventory and vault? | Staging environment dry-run |
+
+APME and these tools are complementary. APME runs in seconds without infrastructure and catches structural and compatibility issues early. Execution-time tools validate behavior and correctness against real systems. Use both.
+
 ## Architecture at a glance
 
 ```
@@ -62,34 +107,34 @@ pip install -r requirements.txt
 pip install -e ".[dev]"
 
 # Run a check (user-facing); engine runs the internal scan pipeline
-apme-scan check /path/to/playbook-or-project
+apme check /path/to/playbook-or-project
 
 # JSON output
-apme-scan check --json .
+apme check --json .
 
 # Diagnostics: summary + top 10 slowest rules
-apme-scan check -v .
+apme check -v .
 
 # Diagnostics: full per-rule breakdown
-apme-scan check -vv .
+apme check -vv .
 
 # Format YAML files (show diff)
-apme-scan format /path/to/project
+apme format /path/to/project
 
 # Format and apply changes in place
-apme-scan format --apply /path/to/project
+apme format --apply /path/to/project
 
 # CI check mode (exit 1 if changes needed)
-apme-scan format --check /path/to/project
+apme format --check /path/to/project
 
 # Full remediate pipeline: format → idempotency check → re-scan → modernize
-apme-scan remediate /path/to/playbook-or-project
+apme remediate /path/to/playbook-or-project
 
 # AI-assisted remediation (requires Abbenay daemon)
-apme-scan remediate --ai /path/to/playbook-or-project
+apme remediate --ai /path/to/playbook-or-project
 
 # AI with auto-approve (no interactive review)
-apme-scan remediate --ai --auto-approve /path/to/playbook-or-project
+apme remediate --ai --auto-approve /path/to/playbook-or-project
 ```
 
 ### Container deployment (Podman)
@@ -112,7 +157,7 @@ containers/podman/run-cli.sh check --json .
 ### Health check
 
 ```bash
-apme-scan health-check
+apme health-check
 ```
 
 ## AI escalation
@@ -140,7 +185,7 @@ abbenay daemon start
 export APME_ABBENAY_TOKEN="your-token"
 
 # Remediate with AI
-apme-scan remediate --ai /path/to/playbook-or-project
+apme remediate --ai /path/to/playbook-or-project
 ```
 
 ### Container daemon
@@ -161,7 +206,7 @@ podman run -d --name abbenay \
   ghcr.io/redhat-developer/abbenay:latest
 
 # Point APME at the Abbenay container via gRPC TCP
-APME_ABBENAY_ADDR=localhost:50057 apme-scan remediate --ai .
+APME_ABBENAY_ADDR=localhost:50057 apme remediate --ai .
 ```
 
 ### CLI flags

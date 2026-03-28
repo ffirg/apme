@@ -144,6 +144,49 @@ def _deduplicate_violations(violations: list[ViolationDict]) -> list[ViolationDi
     return out
 
 
+_SNIPPET_CONTEXT_LINES = 10
+
+
+def _attach_snippets(violations: list[ViolationDict], files: list[File]) -> None:
+    """Attach source snippet to each violation from the scanned file content.
+
+    Extracts lines around the violation's line number (10 before, 10 after)
+    and stores them as a ``snippet`` key on the violation dict.
+
+    Args:
+        violations: Violation dicts to enrich (mutated in place).
+        files: File protos with path and content from the scan.
+    """
+    violated_paths = {str(v.get("file", "")) for v in violations}
+    file_lines: dict[str, list[str]] = {}
+    for f in files:
+        if f.path not in violated_paths:
+            continue
+        try:
+            file_lines[f.path] = f.content.decode("utf-8", errors="replace").splitlines()
+        except Exception:  # noqa: BLE001
+            continue
+
+    for v in violations:
+        fpath = str(v.get("file", ""))
+        lines = file_lines.get(fpath)
+        if not lines:
+            continue
+        raw_line = v.get("line")
+        if isinstance(raw_line, list | tuple):
+            line_no = int(raw_line[0]) if raw_line else 0
+        elif isinstance(raw_line, int):
+            line_no = raw_line
+        else:
+            continue
+        if line_no < 1:
+            continue
+        start = max(0, line_no - 1 - _SNIPPET_CONTEXT_LINES)
+        end = min(len(lines), line_no + _SNIPPET_CONTEXT_LINES)
+        numbered = [f"{i + 1:>4}: {lines[i]}" for i in range(start, end)]
+        v["snippet"] = "\n".join(numbered)
+
+
 def _normalize_scandata_contexts(scandata: object) -> None:
     """Ensure scandata.contexts is a list of AnsibleRunContext (mutates in place).
 
@@ -184,7 +227,7 @@ def _write_chunked_fs(files: list[File]) -> Path:
     Raises:
         ValueError: If a file path is absolute or escapes the temp root.
     """
-    tmp = Path(tempfile.mkdtemp(prefix="apme_primary_"))
+    tmp = Path(tempfile.mkdtemp(prefix="apme_primary_")).resolve()
     for f in files:
         rel = Path(f.path)
         if rel.is_absolute() or ".." in rel.parts:
@@ -420,7 +463,7 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         collection_specs: list[str] | None = None,
         include_scandata: bool = True,
         session_id: str = "",
-        progress_callback: Callable[[str, str, float], None] | None = None,
+        progress_callback: Callable[[str, str, float, int], None] | None = None,
     ) -> tuple[
         list[ViolationDict],
         ScanDiagnostics | None,
@@ -572,7 +615,7 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         if task_coros:
             num_validators = len(task_coros)
             if _pcb:
-                _pcb("scan", f"Dispatching to {num_validators} validators...", 0.0)
+                _pcb("scan", f"Dispatching to {num_validators} validators...", 0.0, 2)
             logger.info("Fan-out: dispatching to %d validators (req=%s)", num_validators, scan_id)
             fan_t0 = time.monotonic()
 
@@ -588,13 +631,13 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
                 except BaseException as exc:
                     validators_done += 1
                     if _pcb:
-                        _pcb("scan", f"{name.title()}: error: {exc}", validators_done / num_validators)
+                        _pcb("scan", f"{name.title()}: error: {exc}", validators_done / num_validators, 4)
                     raise
                 else:
                     validators_done += 1
                     if _pcb:
                         count = len(result.violations)
-                        _pcb("scan", f"{name.title()}: {count} findings", validators_done / num_validators)
+                        _pcb("scan", f"{name.title()}: {count} findings", validators_done / num_validators, 2)
                     return name, result
 
             named_results = await asyncio.gather(
@@ -620,6 +663,7 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
             logger.info("Fan-out: done (%.0fms) %s Total=%d (req=%s)", fan_out_ms, parts, len(violations), scan_id)
 
         violations = _deduplicate_violations(_sort_violations(violations))
+        _attach_snippets(violations, files)
 
         total_ms = (time.monotonic() - scan_t0) * 1000
         ediag = context_obj.engine_diagnostics
@@ -1046,10 +1090,10 @@ class PrimaryServicer(primary_pb2_grpc.PrimaryServicer):
         _HEARTBEAT_INTERVAL = 15
         progress_queue: asyncio.Queue[ProgressUpdate | None] = asyncio.Queue()
 
-        def _progress_callback(phase: str, message: str, fraction: float = 0.0) -> None:
+        def _progress_callback(phase: str, message: str, fraction: float = 0.0, level: int = 2) -> None:
             loop.call_soon_threadsafe(
                 progress_queue.put_nowait,
-                ProgressUpdate(message=message, phase=phase, progress=fraction, level=2),
+                ProgressUpdate(message=message, phase=phase, progress=fraction, level=level),
             )
 
         manifest_captured = False

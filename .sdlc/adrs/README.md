@@ -51,6 +51,7 @@ Decisions that have been accepted but are not yet fully implemented.
 | [ADR-012](ADR-012-scale-pods-not-services.md) | Scale Pods, Not Services Within a Pod | 2026-02 |
 | [ADR-016](ADR-016-single-branch-main.md) | Single-branch `main` Strategy | 2026-03 |
 | [ADR-040](ADR-040-scan-metadata-enrichment.md) | Scan Metadata Enrichment | 2026-03-25 |
+| [ADR-043](ADR-043-default-severity-assignment.md) | Default Severity Assignment for Rule Catalog | 2026-03-26 |
 
 ## Proposed
 
@@ -64,6 +65,7 @@ Decisions under consideration — not yet accepted or implemented.
 | [ADR-038](ADR-038-public-data-api.md) | Public Data API for Platform Consumers | 2026-03-25 |
 | [ADR-041](ADR-041-rule-catalog-override-architecture.md) | Rule Catalog & Override Architecture | 2026-03-25 |
 | [ADR-042](ADR-042-third-party-plugin-services.md) | Third-Party Plugin Services | 2026-03-20 |
+| [ADR-044](ADR-044-node-identity-progression-model.md) | Node Identity and Progression Model | 2026-03-27 |
 
 ## Superseded
 
@@ -77,7 +79,7 @@ Decisions replaced by newer ADRs.
 ## Creating New ADRs
 
 1. Copy the template from `../templates/adr.md`
-2. Use the next available number (currently ADR-043)
+2. Use the next available number (currently ADR-045)
 3. Include:
    - Status (Proposed → Accepted → Implemented)
    - Date
