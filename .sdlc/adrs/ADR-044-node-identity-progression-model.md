@@ -270,7 +270,7 @@ deploy.yml::play[0]
 
 **Static imports** (`import_tasks`, `import_role`) are fully resolved at parse time — their content is materialized in the graph with the import directive as the include edge.
 
-**Dynamic includes** (`include_tasks`, `include_role`) remain as leaf nodes with a `dynamic` edge type. Their children are unknown until execution and may vary per host. APME treats them as opaque scan boundaries — the include directive itself is scannable (rule L054 checks for missing files), but the included content is not part of the static graph.
+**Dynamic includes** (`include_tasks`, `include_role`) remain as leaf nodes with a `dynamic` edge type. Their children are unknown until execution and may vary per host. APME treats them as opaque scan boundaries — the include directive itself is scannable (for issues such as missing files), but the included content is not part of the static graph.
 
 **Ownership borders** determine the scan boundary:
 
