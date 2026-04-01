@@ -11,14 +11,16 @@ Document the consumption and integration patterns for APME across different depl
 
 ## What APME Does
 
-APME (Ansible Policy & Modernization Engine) is a static and semi-static analysis platform for Ansible content. It parses playbooks, roles, and collections into a structured hierarchy and validates against 100+ rules via four independent backends:
+APME (Ansible Policy & Modernization Engine) is a static and semi-static analysis platform for Ansible content. It parses playbooks, roles, and collections into a structured hierarchy and validates against 153 rules via four independent backends (see `docs/RULE_CATALOG.md` for the authoritative list):
 
-| Backend | Rule Prefixes | Purpose |
-|---------|---------------|---------|
-| **OPA/Rego** | L003–L025, L061–L072 | Structural rules |
-| **Native Python** | L026–L105 | Semantic rules |
-| **Ansible-runtime** | L057–L059, M001–M030 | Version compatibility, deprecation |
-| **Gitleaks** | SEC:* | 800+ secret patterns |
+| Backend | Rules | Purpose |
+|---------|-------|---------|
+| **OPA/Rego** | 48 rules, 17 fixers | Structural policy rules |
+| **Native Python** | 97 rules, 3 fixers | Semantic analysis rules |
+| **Ansible-runtime** | 7 rules, 4 fixers | Version compatibility, deprecation |
+| **Gitleaks** | 1 rule (800+ secret patterns) | Secret detection |
+
+Rule IDs use prefixes per ADR-008: L = Lint, M = Modernize, R = Risk, P = Policy, SEC = Secrets. IDs are sequential and independent of which validator implements them.
 
 **Key questions APME answers:**
 - Will this playbook parse on target ansible-core version?
@@ -39,8 +41,8 @@ APME (Ansible Policy & Modernization Engine) is a static and semi-static analysi
 
 **How it works**:
 - CLI auto-spawns local daemon on first use (ADR-024)
-- Daemon runs Primary + Native + OPA validators on localhost gRPC
-- No containers required for basic validation
+- Daemon runs Primary + Native + OPA + Ansible validators and Galaxy Proxy on localhost gRPC (only Gitleaks is optional — requires external binary)
+- No containers required — the daemon provides the same validation as the pod minus Gitleaks, Gateway, UI, and Abbenay
 - State persisted in `~/.apme-data/daemon.json`
 
 **Commands**:
@@ -80,10 +82,11 @@ APME_PRIMARY_ADDRESS=localhost:50051 apme check .
 ```
 
 **Why use this**:
-- Full validation suite (including Ansible-runtime version checks, Gitleaks)
-- Session venv caching (Galaxy Proxy converts collections to wheels)
-- Multi-user with Gateway persistence
-- Dashboard for portfolio visibility
+- Adds Gitleaks secrets scanning (optional in standalone daemon)
+- Gateway persistence, REST API, and Dashboard for portfolio visibility
+- Multi-user support with project management
+- UI for browsing scan results, trends, and violations
+- Abbenay AI provider for Tier 2 remediation
 
 ---
 
@@ -95,7 +98,7 @@ APME_PRIMARY_ADDRESS=localhost:50051 apme check .
 
 #### 3a. GitHub Actions / GitLab CI Gate
 ```yaml
-# .github/workflows/ansible-lint.yml
+# .github/workflows/apme-check.yml
 jobs:
   apme-check:
     runs-on: ubuntu-latest
@@ -103,13 +106,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: apme check . --json > apme-report.json
-      - run: exit $(jq '.violation_count > 0' apme-report.json)
+      - name: Fail if violations found
+        run: test "$(jq '.count' apme-report.json)" -eq 0
 ```
 
-#### 3b. Self-Hosted APME Service
-- CI calls REST API: `POST /api/v1/scans` with repo URL
-- Webhook callback on completion
-- Query `GET /api/v1/projects/{id}/health` for pass/fail
+#### 3b. Self-Hosted APME Service (Future)
+A centralized APME pod that CI pipelines call into, rather than running the CLI in each repo:
+- Gateway already supports scan triggering via WebSocket (`/projects/{id}/ws/operate`)
+- A REST `POST` trigger endpoint (e.g., `POST /api/v1/projects/{id}/scans`) would better suit CI/CD (planned, not yet implemented)
+- Project health is available via `GET /api/v1/projects/{id}` (`health_score` field)
+- Webhook callback on completion (ADR-038 planned feature)
 
 #### 3c. Pre-commit Hook
 ```yaml
@@ -130,7 +136,7 @@ repos:
 - Integration with existing CI infrastructure
 - PR decoration with violation comments (future enhancement)
 
-**AAP consideration**: AAP 2.6+ has project sync from SCM. CI validation before sync ensures clean content reaches Controller.
+**AAP consideration**: AAP project sync from SCM means CI validation before sync ensures clean content reaches Controller.
 
 ---
 
@@ -156,7 +162,7 @@ Controller/EDA queries APME before job execution:
 Project Sync → APME check → health_score < threshold? → Block execution
 ```
 
-ADR-038 defines the API: `GET /api/v1/projects?repo_url={url}` returns health score.
+ADR-038 defines the API surface. Today `GET /api/v1/projects/{id}` returns `health_score`; a `?repo_url=` query filter is planned but not yet implemented.
 
 #### 4b. Policy Augmentation (Recommended)
 APME provides rich parsing context to Controller's existing OPA:
@@ -168,7 +174,7 @@ This aligns with DR-015 (Controller Policy Integration) Option B.
 
 #### 4c. EDA Rulebook Validation
 DR-014 recommends: EDA calls APME during rulebook import, marks invalid rulebooks.
-- Rules E001-E005 catch rulebook structural issues
+- Rulebook-specific validation rules would need to be added (no EDA-specific rules exist today)
 - Surfaces validation in EDA UI before activation
 
 #### 4d. Hub Content Validation
@@ -261,7 +267,7 @@ Engine → ScanCompleted event → Reporting Service → Gateway SQLite
 
 ### AAP Automation Dashboard Integration
 
-**Current state**: Dashboard is standalone installation (2.5/2.6), integrated in 2.7+
+**Current state**: Dashboard is standalone installation (assumed integrated in future AAP releases)
 
 | Option | Description | Pros | Cons |
 |--------|-------------|------|------|
@@ -278,7 +284,7 @@ Aligns with ADR-038 "Chuck Wagon Principle": APME serves data, consumers come ge
 | Phase | Scope | Metrics Path |
 |-------|-------|--------------|
 | **V1 (Current)** | APME Dashboard shows health, trends, rankings | Gateway SQLite |
-| **AAP 2.7** | Controller queries APME during project sync | Via Controller → AA |
+| **AAP (future)** | Controller queries APME during project sync | Via Controller → AA |
 | **Future** | Prometheus exporter, Grafana templates, ROI calculator | Multiple sinks |
 
 ---
