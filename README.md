@@ -95,6 +95,86 @@ cd /path/to/your/project
 containers/podman/run-cli.sh --json .
 ```
 
+#### Pod architecture
+
+```
+                                 APME Pod Architecture
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                  apme-pod                                       │
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │                         User Entry Points                               │   │
+│   │                                                                         │   │
+│   │    Browser ──► http://localhost:8081 ──► UI (React/nginx)               │   │
+│   │                                              │                          │   │
+│   │    Terminal ──► run-cli.sh ────────────────┐ │ REST/WebSocket           │   │
+│   │                      │                     │ ▼                          │   │
+│   │                      │              ┌──────────────┐                    │   │
+│   │                      │              │   Gateway    │ ◄── SQLite DB      │   │
+│   │                      │              │  :8080/:50060│     /data/apme.db  │   │
+│   │                      │              └──────┬───────┘                    │   │
+│   │                      │                     │ gRPC                       │   │
+│   └──────────────────────┼─────────────────────┼────────────────────────────┘   │
+│                          │                     │                                │
+│                          ▼                     ▼                                │
+│   ┌──────────────────────────────────────────────────────────────────────────┐  │
+│   │                        Engine Layer                                      │  │
+│   │                                                                          │  │
+│   │    ┌────────────────────────────────────────────────────────────────┐    │  │
+│   │    │                      Primary :50051                            │    │  │
+│   │    │    • Orchestrator: parse → annotate → fan-out → aggregate     │    │  │
+│   │    │    • Session venv management (ansible-core versions)          │    │  │
+│   │    └────────────────────────────┬───────────────────────────────────┘    │  │
+│   │                                 │                                        │  │
+│   │              gRPC parallel fan-out (asyncio.gather)                      │  │
+│   │                 ┌────────┬──────┴──────┬─────────┐                       │  │
+│   │                 ▼        ▼             ▼         ▼                       │  │
+│   │    ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌─────────────┐                  │  │
+│   │    │ Native  │ │   OPA   │ │ Ansible  │ │  Gitleaks   │                  │  │
+│   │    │ :50055  │ │ :50054  │ │  :50053  │ │   :50056    │                  │  │
+│   │    │         │ │         │ │          │ │             │                  │  │
+│   │    │ Python  │ │  Rego   │ │ Runtime  │ │  Secrets    │                  │  │
+│   │    │  rules  │ │  rules  │ │  checks  │ │   scan      │                  │  │
+│   │    │ L026+   │ │ L003+   │ │ L057-59  │ │   SEC:*     │                  │  │
+│   │    │ R101+   │ │ R118    │ │ M001-04  │ │ 800+ rules  │                  │  │
+│   │    └─────────┘ └─────────┘ └──────────┘ └─────────────┘                  │  │
+│   │                                                                          │  │
+│   └──────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│   ┌──────────────────────────────────────────────────────────────────────────┐  │
+│   │                      Supporting Services                                 │  │
+│   │                                                                          │  │
+│   │    ┌────────────────────┐              ┌─────────────────────┐           │  │
+│   │    │   Galaxy Proxy    │              │      Abbenay        │           │  │
+│   │    │      :8765        │              │       :50057        │           │  │
+│   │    │                   │              │                     │           │  │
+│   │    │ Collections → PEP │              │   AI Provider for   │           │  │
+│   │    │ 503 Python wheels │              │   Tier 2 remediation│           │  │
+│   │    └────────────────────┘              └─────────────────────┘           │  │
+│   │                                                                          │  │
+│   └──────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│   Shared Volumes:                                                               │
+│   • /sessions  ─ Session venvs (Primary ↔ Ansible validator)                    │
+│   • /cache     ─ UV cache + Galaxy collections (~/.cache/apme on host)          │
+│   • /data      ─ Gateway SQLite database                                        │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+CLI Container (ephemeral, joins pod network on each invocation)
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  run-cli.sh [command]                                                           │
+│  • Mounts $(pwd) → /workspace                                                   │
+│  • Connects to Primary at 127.0.0.1:50051                                       │
+│  • Commands: check, remediate, format, health-check                             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Data flow:**
+1. **Check/Scan**: CLI or UI → Gateway → Primary → validators (parallel) → aggregated violations
+2. **Remediate**: Check + Tier 1 transforms in Primary + Tier 2 AI proposals via Abbenay
+3. **Collections**: Primary/Ansible → Galaxy Proxy → galaxy.ansible.com → wheels
+
 ### Health check
 
 ```bash
