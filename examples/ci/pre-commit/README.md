@@ -103,12 +103,12 @@ pre-commit run apme-format --all-files
   pass_filenames: false
 ```
 
-### Specific directories
+### Specific directory
 
 ```yaml
 - id: apme-check
   name: APME Ansible check
-  entry: apme check playbooks/ roles/
+  entry: apme check playbooks/
   language: system
   pass_filenames: false
 ```
@@ -143,11 +143,11 @@ If using a virtualenv, either:
 
 ### Slow on large repos
 
-APME scans all YAML files by default. For large repos, scope to specific
-directories:
+APME scans all YAML files by default. For large repos, scope to a specific
+directory:
 
 ```yaml
-entry: apme check playbooks/ roles/ --exclude tests/
+entry: apme check playbooks/
 ```
 
 ### Skip hooks temporarily

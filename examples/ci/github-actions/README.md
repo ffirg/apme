@@ -57,10 +57,10 @@ commits fixes (requires write permissions).
 
 ## Customization
 
-### Scan specific directories
+### Scan a specific directory
 
 ```yaml
-- run: apme check playbooks/ roles/
+- run: apme check playbooks/
 ```
 
 ### JSON output for downstream processing
@@ -76,7 +76,7 @@ commits fixes (requires write permissions).
 ### Target specific ansible-core version
 
 ```yaml
-- run: apme check . --ansible-core-version 2.16
+- run: apme check . --ansible-version 2.16
 ```
 
 ### Continue on violations (non-blocking)
@@ -91,8 +91,7 @@ commits fixes (requires write permissions).
 | Code | Meaning |
 |------|---------|
 | 0 | No violations found |
-| 1 | Violations found (or format changes needed) |
-| 2 | Error (file not found, invalid args, etc.) |
+| 1 | Violations found, format changes needed, or error |
 
 ## Caching
 
