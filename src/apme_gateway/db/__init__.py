@@ -21,7 +21,7 @@ def _set_sqlite_pragma(
         dbapi_connection: Raw DBAPI connection from the pool.
         _connection_record: SQLAlchemy connection record (unused).
     """
-    cursor = dbapi_connection.cursor()  # type: ignore[union-attr]
+    cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 

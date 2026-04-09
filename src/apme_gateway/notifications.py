@@ -49,10 +49,8 @@ def _broadcast(payload: dict[str, Any]) -> None:
         try:
             q.put_nowait(payload)
         except asyncio.QueueFull:
-            try:
+            with contextlib.suppress(asyncio.QueueEmpty):
                 q.get_nowait()
-            except asyncio.QueueEmpty:
-                pass
             try:
                 q.put_nowait(payload)
             except asyncio.QueueFull:
@@ -169,8 +167,9 @@ async def generate_notifications(
     # -- Scan complete notification (always) --------------------------------
 
     if scan.scan_type == "remediate":
+        remaining = max(scan.total_violations - scan.fixed_count, 0)
         title = "Remediation Complete"
-        msg = f"{display_name}: {scan.fixed_count} findings resolved, {scan.total_violations} remaining"
+        msg = f"{display_name}: {scan.fixed_count} findings resolved, {remaining} remaining"
         variant = "success" if scan.fixed_count > 0 else "info"
     else:
         title = "Check Complete"

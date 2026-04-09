@@ -2111,7 +2111,7 @@ async def notification_stream() -> StreamingResponse:
                 with contextlib.suppress(asyncio.CancelledError, StopAsyncIteration):
                     await pending_chunk
             with contextlib.suppress(AttributeError):
-                await stream.aclose()
+                await stream.aclose()  # type: ignore[attr-defined]
             unsubscribe(queue)
 
     return StreamingResponse(

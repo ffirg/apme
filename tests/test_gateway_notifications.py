@@ -114,8 +114,8 @@ class TestGenerateNotifications:
         assert "3 violations" in payloads[0]["message"]
 
     async def test_remediate_scan_notification(self) -> None:
-        """Remediation scans include fixed count in the message."""
-        await _seed_session_and_scan(scan_type="remediate", fixed_count=5, total_violations=2)
+        """Remediation scans include fixed count and correct remaining in the message."""
+        await _seed_session_and_scan(scan_type="remediate", fixed_count=5, total_violations=7)
         async with get_session() as db:
             from sqlalchemy import select
 
@@ -126,6 +126,7 @@ class TestGenerateNotifications:
         assert payloads[0]["type"] == "scan_complete"
         assert payloads[0]["title"] == "Remediation Complete"
         assert "5 findings resolved" in payloads[0]["message"]
+        assert "2 remaining" in payloads[0]["message"]
         assert payloads[0]["variant"] == "success"
 
     async def test_zero_violation_check_is_success(self) -> None:
