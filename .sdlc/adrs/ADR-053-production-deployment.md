@@ -88,8 +88,9 @@ Proxy Exception).
 #### Secrets
 
 SCM tokens, API keys, and Abbenay credentials are managed via Kubernetes
-Secrets. The chart supports both inline values and references to
-external-secrets-operator `ExternalSecret` resources.
+Secrets. The chart currently supports native Kubernetes `Secret` resources
+and inline values rendered into those secrets. Support for
+external-secrets-operator `ExternalSecret` resources is not yet implemented.
 
 ### 2. bootc VM Image (`deploy/bootc/`)
 

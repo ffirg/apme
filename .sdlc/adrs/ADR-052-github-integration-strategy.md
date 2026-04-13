@@ -178,9 +178,12 @@ function converting violation dicts to SARIF 2.1.0 JSON. Tested independently.
 
 1. `actions/checkout` — check out the repo
 2. `astral-sh/setup-uv` + `uv pip install --system apme-engine`
-3. `apme check --sarif` with `APME_PRIMARY_ADDRESS` set to hosted instance
-4. Upload SARIF via `github/codeql-action/upload-sarif`
-5. Post PR summary comment via `actions/github-script`
+3. Run `apme check` with `APME_PRIMARY_ADDRESS` set to the hosted instance:
+   - default to `apme check --json` when PR comments or artifacts are enabled
+   - derive SARIF from the JSON output when SARIF upload/annotations are needed
+   - use `apme check --sarif` directly only when PR comments and artifacts are disabled
+4. Upload SARIF via `github/codeql-action/upload-sarif` when SARIF output is available
+5. Post PR summary comment via `actions/github-script` when PR comments are enabled
 
 ## Related Decisions
 
