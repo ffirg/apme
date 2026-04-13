@@ -112,11 +112,6 @@ _ANSIBLE_INTERNAL_PARAMS = frozenset(
     }
 )
 
-# FILE_COMMON_ARGUMENTS are merged into argspec inside AnsibleModule.__init__,
-# AFTER our mock intercepts the call.  The mock captures the spec as passed to
-# the constructor, so these well-known file params are never in the captured
-# dict.  We allowlist them to avoid false positives on any module that accepts
-# file attributes (copy, file, template, lineinfile, unarchive, etc.).
 _FILE_COMMON_ARGUMENTS = frozenset(
     {
         "mode",

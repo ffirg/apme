@@ -56,6 +56,8 @@ Decisions that have been accepted but are not yet fully implemented.
 | [ADR-043](ADR-043-default-severity-assignment.md) | Default Severity Assignment for Rule Catalog | 2026-03-26 |
 | [ADR-048](ADR-048-pod-internal-admin-endpoints.md) | Pod-Internal Admin Endpoints Rely on Network Isolation | 2026-04-01 |
 | [ADR-049](ADR-049-gateway-in-daemon.md) | Gateway Embedded in Local Daemon | 2026-04-01 |
+| [ADR-052](ADR-052-github-integration-strategy.md) | GitHub Integration Strategy | 2026-04-10 |
+| [ADR-053](ADR-053-production-deployment.md) | Production Deployment — Helm Chart and bootc VM Image | 2026-04-10 |
 
 ## Proposed
 
@@ -86,7 +88,7 @@ Decisions replaced by newer ADRs.
 ## Creating New ADRs
 
 1. Copy the template from `../templates/adr.md`
-2. Use the next available number (currently ADR-052)
+2. Use the next available number (currently ADR-054)
 3. Include:
    - Status (Proposed → Accepted → Implemented)
    - Date
