@@ -457,8 +457,12 @@ class TestNotificationEndpoints:
             _broadcast(payload)
 
             lines = resp.aiter_lines()
+            deadline = asyncio.get_running_loop().time() + 5.0
             for _ in range(20):
-                line = await asyncio.wait_for(anext(lines), timeout=2.0)
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    pytest.fail("Timed out waiting for SSE data event")
+                line = await asyncio.wait_for(anext(lines), timeout=remaining)
                 if line.startswith("data: "):
                     data = json.loads(line.removeprefix("data: ").strip())
                     assert data["type"] == "scan_complete"
