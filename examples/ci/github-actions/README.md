@@ -75,13 +75,14 @@ This will:
 | `sarif` | `true` | Upload SARIF for Code Scanning annotations |
 | `upload-artifact` | `false` | Upload JSON results as a workflow artifact |
 | `comment` | `true` | Post a PR summary comment |
+| `cli-version` | | Pin `apme-engine` version (e.g. `0.1.0`); defaults to latest |
 
 ### Action Outputs
 
 | Output | Description |
 |--------|-------------|
 | `exit-code` | `0` = clean, `1` = violations, `2` = error |
-| `violation-count` | Number of violations found |
+| `violation-count` | Number of violations found (empty in plain mode) |
 | `sarif-path` | Path to the generated SARIF file |
 
 ## SARIF and Inline Annotations
