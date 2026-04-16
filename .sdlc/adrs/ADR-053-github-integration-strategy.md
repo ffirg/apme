@@ -1,4 +1,4 @@
-# ADR-052: GitHub Integration Strategy
+# ADR-053: GitHub Integration Strategy
 
 ## Status
 
@@ -194,4 +194,4 @@ function converting violation dicts to SARIF 2.1.0 JSON. Tested independently.
 - ADR-038: Public Data API (hosted mode queries the same API)
 - ADR-047: tox as sole orchestration
 - ADR-050: Post-remediation PR creation
-- ADR-053: Production deployment (Helm + bootc for hosted APME)
+- ADR-054: Production deployment (Helm + bootc for hosted APME)

@@ -1,5 +1,5 @@
 # APME Helm Chart — default values
-# See ADR-053 for architecture rationale.
+# See ADR-054 for architecture rationale.
 # The engine stack (Primary + validators + Galaxy Proxy) runs as sidecars in
 # a single pod, preserving ADR-005 localhost networking and ADR-012 pod scaling.
 
