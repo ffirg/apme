@@ -450,6 +450,10 @@ class TestNotificationEndpoints:
         assert resp.headers.get("X-Accel-Buffering") == "no"
         assert resp.headers.get("Connection") == "keep-alive"
 
+        # Close the body iterator so the generator's finally block runs and
+        # the subscriber is unregistered from the global _subscribers list.
+        await resp.body_iterator.aclose()
+
 
 # ---------------------------------------------------------------------------
 # Broadcast-after-commit tests

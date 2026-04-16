@@ -2025,14 +2025,20 @@ async def list_notifications(
     Returns:
         Tuple of (notification rows, total count).
     """
-    base = select(Notification)
+    filters = []
     if unread_only:
-        base = base.where(Notification.read.is_(False))
+        filters.append(Notification.read.is_(False))
 
-    count_stmt = select(func.count()).select_from(base.subquery())
+    count_stmt = select(func.count()).select_from(Notification).where(*filters)
     total = cast(int, (await db.execute(count_stmt)).scalar_one())
 
-    stmt = base.order_by(Notification.created_at.desc(), Notification.id.desc()).limit(limit).offset(offset)
+    stmt = (
+        select(Notification)
+        .where(*filters)
+        .order_by(Notification.created_at.desc(), Notification.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     result = await db.execute(stmt)
     return list(result.scalars().all()), total
 
