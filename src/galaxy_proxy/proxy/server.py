@@ -247,7 +247,12 @@ def create_app(
             versions = meta.versions
 
         if versions is None:
-            galaxy_versions = await _fetch_galaxy_versions(namespace, name)
+            _, servers_cfg, _ = _get_galaxy_config()
+            galaxy_versions = await _fetch_galaxy_versions(
+                namespace,
+                name,
+                servers=servers_cfg,
+            )
             if galaxy_versions:
                 cache.put_metadata(namespace, name, galaxy_versions)
                 versions = galaxy_versions
@@ -475,21 +480,110 @@ def _galaxy_version_sort_key(version: str) -> tuple[int, Version | str]:
         return (1, version)
 
 
-async def _fetch_galaxy_versions(namespace: str, name: str) -> list[str]:
+async def _fetch_galaxy_versions(
+    namespace: str,
+    name: str,
+    *,
+    servers: list[GalaxyServerConfig] | None = None,
+) -> list[str]:
     """Fetch all published version strings for a collection from Galaxy.
+
+    When *servers* is provided, each configured server is tried in order
+    (matching ``ansible.cfg`` ``server_list`` semantics).  The first
+    server to return a successful response wins.  If no configured server
+    succeeds — or if no servers are configured — falls back to public
+    Galaxy (``galaxy.ansible.com``).
+
+    This enables version discovery from console.redhat.com / Automation
+    Hub / private Galaxy instances configured via the Gateway UI.
 
     Args:
         namespace: Collection namespace.
         name: Collection name.
+        servers: Ordered list of Galaxy server configs (optional).
 
     Returns:
-        List of version strings, empty on error.
+        Sorted list of version strings, empty on error.
+    """
+    base_urls: list[tuple[str, str | None]] = []
+    for srv in servers or []:
+        base_urls.append((srv.url.rstrip("/"), srv.token))
+    base_urls.append((_GALAXY_API_URL, None))
+
+    for base_url, token in base_urls:
+        versions = await _fetch_versions_from(namespace, name, base_url, token=token)
+        if versions is not None:
+            return sorted(set(versions), key=_galaxy_version_sort_key)
+
+    tried = [u for u, _ in base_urls]
+    logger.warning(
+        "All Galaxy servers failed for %s.%s (tried: %s)",
+        namespace,
+        name,
+        ", ".join(tried),
+    )
+    return []
+
+
+def _normalize_galaxy_url(raw_url: str) -> str:
+    """Strip ansible.cfg-style ``/api/...`` suffixes from the URL path.
+
+    Configured Galaxy servers often include ``/api/``, ``/api/galaxy/``,
+    or ``/api/galaxy/content/...`` in their URL.  ``_GALAXY_VERSIONS_PATH``
+    already starts with ``/api/v3/...``, so we must strip any leading
+    ``/api`` path segment to avoid ``/api/api/v3/...``.
+
+    Only the *path* component is inspected — hostnames like
+    ``https://api.example.com`` are preserved correctly.
+
+    Args:
+        raw_url: Server URL as provided by the user / Gateway config.
+
+    Returns:
+        Base URL with ``/api...`` path segments removed.
+    """
+    from urllib.parse import urlsplit, urlunsplit
+
+    parts = urlsplit(raw_url)
+    path = parts.path.rstrip("/")
+    idx = path.find("/api")
+    if idx != -1:
+        path = path[:idx]
+    return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
+
+
+async def _fetch_versions_from(
+    namespace: str,
+    name: str,
+    base_url: str,
+    *,
+    token: str | None = None,
+) -> list[str] | None:
+    """Fetch version strings from a single Galaxy-compatible server.
+
+    Args:
+        namespace: Collection namespace.
+        name: Collection name.
+        base_url: Base URL of the Galaxy API (no trailing slash).
+        token: Optional auth token for the server.
+
+    Returns:
+        List of version strings on success, or ``None`` on failure so
+        the caller can fall through to the next server.
     """
     versions: list[str] = []
-    url = f"{_GALAXY_API_URL}{_GALAXY_VERSIONS_PATH}/{namespace}/{name}/versions/"
+    normalized = _normalize_galaxy_url(base_url)
+    url = f"{normalized}{_GALAXY_VERSIONS_PATH}/{namespace}/{name}/versions/"
     params: dict[str, str | int] = {"limit": 100, "offset": 0}
+    headers: dict[str, str] = {}
+    if token:
+        headers["Authorization"] = f"Token {token}"
     try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=15.0,
+            follow_redirects=True,
+            headers=headers,
+        ) as client:
             while True:
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
@@ -500,8 +594,15 @@ async def _fetch_galaxy_versions(namespace: str, name: str) -> list[str]:
                     break
                 params["offset"] = int(params["offset"]) + int(params["limit"])
     except (httpx.HTTPError, KeyError, ValueError) as exc:
-        logger.warning("Failed to fetch Galaxy versions for %s.%s: %s", namespace, name, exc)
-    return sorted(set(versions), key=_galaxy_version_sort_key)
+        logger.debug(
+            "Version fetch from %s failed for %s.%s: %s",
+            base_url,
+            namespace,
+            name,
+            exc,
+        )
+        return None
+    return versions
 
 
 def _list_cached_wheels(cache: ProxyCache, namespace: str, name: str) -> list[str]:
