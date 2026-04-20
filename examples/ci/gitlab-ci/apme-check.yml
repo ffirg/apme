@@ -1,0 +1,77 @@
+# APME Check for GitLab CI
+#
+# Copy this file to your Ansible project repository and include it in your
+# .gitlab-ci.yml, or copy the job definitions directly.
+#
+# Usage in .gitlab-ci.yml:
+#   include:
+#     - local: '.gitlab/apme-check.yml'
+#
+# Or copy the jobs directly into your existing .gitlab-ci.yml
+
+stages:
+  - lint
+
+# Base APME job template
+.apme-base:
+  image: python:3.12-slim
+  before_script:
+    - pip install --quiet apme-engine
+    # Install OPA binary for Rego policy evaluation
+    - curl -fsSL -o /usr/local/bin/opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
+    - chmod +x /usr/local/bin/opa
+  variables:
+    OPA_USE_PODMAN: "0"
+
+# Basic APME check - fails on any violation
+apme-check:
+  extends: .apme-base
+  stage: lint
+  script:
+    - apme check . --json > apme-report.json
+  after_script:
+    - |
+      if [ -f apme-report.json ]; then
+        echo "APME Scan Results:"
+        cat apme-report.json | python -m json.tool
+      fi
+  artifacts:
+    when: always
+    paths:
+      - apme-report.json
+    reports:
+      codequality: apme-report.json
+    expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# APME format check - fails if YAML needs reformatting
+apme-format:
+  extends: .apme-base
+  stage: lint
+  script:
+    - apme format --check .
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# APME check with custom options
+# Uncomment and customize as needed
+#
+# apme-check-custom:
+#   extends: .apme-base
+#   stage: lint
+#   script:
+#     - |
+#       apme check . \
+#         --skip L003 \
+#         --skip L015 \
+#         --ansible-core-version 2.18 \
+#         --skip-dep-scan \
+#         --json > apme-report.json
+#   artifacts:
+#     when: always
+#     paths:
+#       - apme-report.json
+#     expire_in: 30 days

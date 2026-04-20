@@ -1,0 +1,197 @@
+---
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g., v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write  # Required for PyPI trusted publishing
+
+env:
+  REGISTRY: ghcr.io
+  FORCE_COLOR: 1
+  PY_COLORS: 1
+
+jobs:
+  # Validate the release tag and extract version
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Determine tag
+        id: version
+        run: |
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          # Extract version without 'v' prefix
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing: ${TAG} (version ${VERSION})"
+
+      - name: Validate version matches pyproject.toml
+        run: |
+          PYPROJECT_VERSION=$(grep -Po '(?<=^version = ")[^"]+' pyproject.toml)
+          if [[ "${PYPROJECT_VERSION}" != "${{ steps.version.outputs.version }}" ]]; then
+            echo "::error::Tag version (${{ steps.version.outputs.version }}) does not match pyproject.toml (${PYPROJECT_VERSION})"
+            exit 1
+          fi
+
+  # Run tests before release
+  test:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7
+      - run: uvx --with tox-uv tox -e lint
+      - run: uvx --with tox-uv tox -e unit
+
+  # Build and publish to PyPI using trusted publishing
+  publish-pypi:
+    needs: [prepare, test]
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/project/apme-engine/${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        with:
+          print-hash: true
+
+  # Build and push container images with semver tags
+  publish-containers:
+    needs: [prepare, test]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: base
+            file: containers/base/Dockerfile
+          - name: primary
+            file: containers/primary/Dockerfile
+          - name: native
+            file: containers/native/Dockerfile
+          - name: opa
+            file: containers/opa/Dockerfile
+          - name: ansible
+            file: containers/ansible/Dockerfile
+          - name: galaxy-proxy
+            file: containers/galaxy-proxy/Dockerfile
+          - name: gitleaks
+            file: containers/gitleaks/Dockerfile
+          - name: gateway
+            file: containers/gateway/Dockerfile
+          - name: cli
+            file: containers/cli/Dockerfile
+          - name: ui
+            file: containers/ui/Dockerfile
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - id: owner
+        run: echo "lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.lc }}/apme-${{ matrix.image.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      # Build base image first if this is not the base image
+      - name: Build base image reference
+        id: base-ref
+        if: matrix.image.name != 'base'
+        run: |
+          echo "image=${{ env.REGISTRY }}/${{ steps.owner.outputs.lc }}/apme-base:${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ${{ matrix.image.file }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ steps.base-ref.outputs.image }}
+            VERSION=${{ needs.prepare.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.image.name }}
+          cache-to: type=gha,scope=${{ matrix.image.name }},mode=max
+
+  # Create GitHub Release with changelog
+  github-release:
+    needs: [prepare, publish-pypi, publish-containers]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          # Extract section between [VERSION] and next [VERSION] or end
+          NOTES=$(awk "/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+          # Write to file to preserve formatting
+          echo "$NOTES" > release-notes.md
+          echo "Extracted release notes for v${VERSION}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: APME ${{ needs.prepare.outputs.version }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
+          generate_release_notes: false
+
+      - name: Summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ needs.prepare.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Published Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- PyPI: [apme-engine ${{ needs.prepare.outputs.version }}](https://pypi.org/project/apme-engine/${{ needs.prepare.outputs.version }}/)" >> $GITHUB_STEP_SUMMARY
+          echo "- Containers: \`ghcr.io/${{ github.repository_owner }}/apme-*:${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
