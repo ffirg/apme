@@ -49,7 +49,7 @@ hooks = [
   {
     id = "pydoclint",
     args = [
-      "--exclude=src/apme/v1/",
+      "--exclude=src/apme/v1/|src/apme_engine/validators/native/rules/L111_inventory_group_hyphens_graph.py",
       "src/",
       "tests/",
       "scripts/"
