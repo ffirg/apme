@@ -1,0 +1,17 @@
+---
+# Prerequisite tasks - old include style
+- name: Update system packages
+  yum:
+    name: "*"
+    state: latest
+
+- name: Install EPEL
+  yum:
+    name: epel-release
+    state: present
+
+- name: Disable SELinux temporarily
+  selinux:
+    state: permissive
+    policy: targeted
+  ignore_errors: yes

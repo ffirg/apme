@@ -1,0 +1,45 @@
+---
+# Database role - deprecated patterns
+- name: Install MariaDB
+  yum:
+    name:
+      - mariadb-server
+      - mariadb
+      - MySQL-python
+    state: present
+
+- name: Start MariaDB
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Set root password
+  mysql_user:
+    name: root
+    password: "{{ db_password }}"
+    login_unix_socket: /var/lib/mysql/mysql.sock
+  no_log: true
+
+- name: Create app database
+  mysql_db:
+    name: appdb
+    state: present
+    login_user: root
+    login_password: "{{ db_password }}"
+
+- name: Copy backup script
+  copy:
+    content: |
+      #!/bin/bash
+      mysqldump appdb > /backup/appdb-$(date +%Y%m%d).sql
+    dest: /usr/local/bin/backup-db.sh
+    mode: 0700
+
+- name: Schedule backup
+  cron:
+    name: "Database backup"
+    minute: "0"
+    hour: "2"
+    job: "/usr/local/bin/backup-db.sh"
+    user: root

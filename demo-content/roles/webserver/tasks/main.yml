@@ -1,0 +1,49 @@
+---
+# Webserver role - Ansible 2.9 style
+- name: Ensure httpd is running
+  service:
+    name: httpd
+    state: started
+    enabled: yes
+
+- name: Deploy index page
+  template:
+    src: index.html.j2
+    dest: /var/www/html/index.html
+    mode: 0755
+
+- name: Open firewall ports
+  command: firewall-cmd --permanent --add-port={{ app_port }}/tcp
+  register: fw_result
+  changed_when: "'success' in fw_result.stdout"
+  ignore_errors: yes
+
+- name: Check if SELinux enabled
+  command: getenforce
+  register: selinux_status
+  changed_when: false
+
+- name: Set SELinux context
+  command: chcon -t httpd_sys_content_t /var/www/html
+  when: selinux_status.stdout == "Enforcing"
+
+- name: Install pip packages
+  pip:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - flask
+    - gunicorn
+    - requests
+
+- name: Wait for service
+  wait_for:
+    port: "{{ app_port }}"
+    delay: 5
+    timeout: 30
+  ignore_errors: True
+
+- name: Debug app status
+  debug:
+    msg: "App running on port {{ app_port }}"
+    verbosity: 1
